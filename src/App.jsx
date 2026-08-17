@@ -1,153 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Plus,
-  Bell,
-  LogOut,
-  PawPrint,
-  Siren,
-  X,
-  Phone,
-  MapPin,
-  Home as HomeIcon,
-  Calculator as CalculatorIcon,
-  Navigation,
-  Check,
-  Dog,
-  Cat,
-  QrCode,
-  Syringe,
-  Weight,
-  Cake,
-  ShoppingBag,
-  LayoutGrid,
-  Mail,
-  Lock,
+  Bell, LogOut, PawPrint, Siren, Home as HomeIcon, Calculator as CalculatorIcon,
+  User, Users, Dog, Cat, Mail, Lock, ShoppingBag, Syringe, ChevronRight,
+  Calendar, AlertTriangle, Utensils, Heart,
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-
-// ============================================================
-// 📦 DATOS ESTÁTICOS
-// ============================================================
-const VACCINE_CATALOG = [
-  { id: 'v1', name: 'Antirrábica', species: ['Perro', 'Gato'], obligatory: true },
-  { id: 'v2', name: 'Óctuple Canina', species: ['Perro'], obligatory: true },
-  { id: 'v3', name: 'Triple Felina', species: ['Gato'], obligatory: true },
-];
-
-const FOOD_QUALITY = [
-  { id: 'super', label: 'Súper Premium', factor: 12 },
-  { id: 'premium', label: 'Premium', factor: 15 },
-  { id: 'economico', label: 'Económico', factor: 18 },
-];
-
-const PLACES = [
-  {
-    id: 'p1',
-    name: 'Clínica Veterinaria Antupirén',
-    subtitle: 'Urgencia 24/7',
-    address: 'Butacura 8789, Peñalolén',
-    category: 'Urgencias',
-  },
-  {
-    id: 'p2',
-    name: 'Club Animal',
-    subtitle: 'Urgencia 24/7',
-    address: 'Av. Los Presidentes 7674, Peñalolén',
-    category: 'Urgencias',
-  },
-  {
-    id: 'p3',
-    name: 'La Granja Pet',
-    subtitle: 'Pet Shop',
-    address: 'Antupiren 8340, Peñalolén',
-    category: 'Tiendas',
-  },
-  {
-    id: 'p4',
-    name: 'Suki Pet Food',
-    subtitle: 'Pet Shop',
-    address: 'Av. Grecia 6708, Peñalolén',
-    category: 'Tiendas',
-  },
-  {
-    id: 'p5',
-    name: 'Veterinaria Portal Mayor',
-    subtitle: 'Veterinario',
-    address: 'Av. Grecia 8311, Peñalolén',
-    category: 'Veterinarios',
-  },
-];
-
-const FILTERS = ['Todos', 'Urgencias 24/7', 'Pet Shops / Tiendas', 'Veterinarios'];
-const FILTER_TO_CATEGORY = {
-  Todos: null,
-  'Urgencias 24/7': 'Urgencias',
-  'Pet Shops / Tiendas': 'Tiendas',
-  Veterinarios: 'Veterinarios',
-};
-const CATEGORY_COLOR = {
-  Urgencias: '#FF3B30',
-  Tiendas: '#FF8A80',
-  Veterinarios: '#43A047',
-};
+import { PetAvatar } from './components';
+import { FOOD_QUALITY, formatAge, formatDate, daysUntil } from './lib';
+import PetsScreen from './PetsScreen';
+import CommunityScreen from './CommunityScreen';
+import SosScreen from './SosScreen';
 
 const SEED_PETS = [
-  { name: 'Rocky', type: 'Perro', breed: 'Mestizo', weight: 15, age: 4 },
-  { name: 'Luna', type: 'Gato', breed: 'Siamés', weight: 4, age: 2 },
+  { name: 'Rocky', type: 'Perro', breed: 'Mestizo', weight: 15, age: 4, age_unit: 'años' },
+  { name: 'Luna', type: 'Gato', breed: 'Siamés', weight: 4, age: 2, age_unit: 'años' },
 ];
 
 // ============================================================
-// 🧩 COMPONENTES REUTILIZABLES
+// 🧭 BARRA DE NAVEGACIÓN INFERIOR (6 secciones)
 // ============================================================
-function PetAvatar({ type, size = 56, selected }) {
-  const bg = type === 'Gato' ? '#FFE0B2' : '#E8F5E9';
-  return (
-    <div
-      className="pet-avatar"
-      style={{
-        width: size,
-        height: size,
-        background: bg,
-        border: selected ? '3px solid #A5D6A7' : 'none',
-      }}
-    >
-      {type === 'Gato' ? (
-        <Cat size={size * 0.5} color="#8D6E63" />
-      ) : (
-        <Dog size={size * 0.5} color="#6D4C41" />
-      )}
-    </div>
-  );
-}
-
-function PetCard({ pet, selected, onClick }) {
-  return (
-    <button className={`pet-card ${selected ? 'selected' : ''}`} onClick={onClick}>
-      <PetAvatar type={pet.type} size={64} selected={selected} />
-      <p className="pet-card-name">{pet.name}</p>
-      <p className="pet-card-meta">
-        {pet.type} • {pet.breed}
-      </p>
-      <div className="pet-card-chips">
-        <span className="pet-chip">
-          <Weight size={12} /> {pet.weight}kg
-        </span>
-        <span className="pet-chip">
-          <Cake size={12} /> {pet.age} años
-        </span>
-      </div>
-    </button>
-  );
-}
-
 function TabBar({ activeTab, setActiveTab }) {
   const tabs = [
     { key: 'home', label: 'Inicio', Icon: HomeIcon },
-    { key: 'calc', label: 'Calculadora', Icon: CalculatorIcon },
-    { key: 'map', label: 'Cerca de mí', Icon: Navigation },
+    { key: 'pets', label: 'Mascotas', Icon: PawPrint },
+    { key: 'calc', label: 'Calc', Icon: CalculatorIcon },
+    { key: 'community', label: 'Comunidad', Icon: Users },
+    { key: 'sos', label: 'SOS', Icon: Siren },
+    { key: 'profile', label: 'Perfil', Icon: User },
   ];
   return (
-    <div className="tab-bar-wrapper">
+    <nav className="tab-bar-wrapper">
       <div className="tab-bar">
         {tabs.map(({ key, label, Icon }) => {
           const active = activeTab === key;
@@ -157,175 +39,44 @@ function TabBar({ activeTab, setActiveTab }) {
               className={`tab-item ${active ? 'active' : ''}`}
               onClick={() => setActiveTab(key)}
               aria-label={label}
+              aria-current={active ? 'page' : undefined}
             >
-              <Icon size={20} color={active ? '#fff' : '#78909C'} />
-              {active && <span className="tab-item-label">{label}</span>}
+              <Icon size={19} />
+              <span className="tab-item-label">{label}</span>
             </button>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-function SosModal({ onClose, pet }) {
-  const [showPoster, setShowPoster] = useState(false);
-
-  const handleCall = () => {
-    window.alert('📞 Conectando con la clínica de urgencias 24/7 más cercana...');
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header-row">
-          <div className="sos-icon-circle">
-            <Siren size={20} color="#fff" />
-          </div>
-          <h3 className="modal-title">Emergencia SOS</h3>
-          <button onClick={onClose} aria-label="Cerrar">
-            <X size={22} color="#78909C" />
-          </button>
-        </div>
-
-        <button className="sos-call-btn" onClick={handleCall}>
-          <Phone size={18} /> Llamada rápida a urgencias
-        </button>
-
-        <button className="poster-toggle-btn" onClick={() => setShowPoster((v) => !v)}>
-          <QrCode size={18} />
-          {showPoster ? 'Ocultar afiche' : 'Generar afiche de mascota perdida'}
-        </button>
-
-        {showPoster && pet && (
-          <div className="poster">
-            <p className="poster-title">¡MASCOTA PERDIDA!</p>
-            <PetAvatar type={pet.type} size={90} />
-            <p className="poster-name">{pet.name}</p>
-            <p className="poster-meta">
-              {pet.type} • {pet.breed} • {pet.weight}kg • {pet.age} años
-            </p>
-            <div className="qr-box">
-              {Array.from({ length: 25 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="qr-dot"
-                  style={{ opacity: (i * 37) % 5 === 0 ? 1 : i % 3 === 0 ? 0.15 : 1 }}
-                />
-              ))}
-            </div>
-            <p className="poster-meta">Escanea para contactar a la familia</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AddPetModal({ onClose, onSave, saving }) {
-  const [name, setName] = useState('');
-  const [type, setType] = useState('Perro');
-  const [weight, setWeight] = useState('');
-  const [age, setAge] = useState('');
-
-  const handleSave = () => {
-    if (!name.trim() || !weight || !age) {
-      window.alert('Por favor completa nombre, peso y edad.');
-      return;
-    }
-    onSave({ name: name.trim(), type, breed: 'Sin raza definida', weight: parseFloat(weight), age: parseFloat(age) });
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header-row">
-          <h3 className="modal-title">Agregar mascota</h3>
-          <button onClick={onClose} aria-label="Cerrar">
-            <X size={22} color="#78909C" />
-          </button>
-        </div>
-
-        <label className="input-label">Nombre</label>
-        <input className="text-input" placeholder="Ej: Firulais" value={name} onChange={(e) => setName(e.target.value)} />
-
-        <label className="input-label">Tipo</label>
-        <div className="type-selector-row">
-          {['Perro', 'Gato'].map((t) => (
-            <button
-              key={t}
-              className={`type-chip ${type === t ? 'active' : ''}`}
-              onClick={() => setType(t)}
-            >
-              {t === 'Gato' ? <Cat size={16} /> : <Dog size={16} />}
-              {t}
-            </button>
-          ))}
-        </div>
-
-        <label className="input-label">Peso (kg)</label>
-        <input
-          className="text-input"
-          type="number"
-          placeholder="Ej: 10"
-          value={weight}
-          onChange={(e) => setWeight(e.target.value)}
-        />
-
-        <label className="input-label">Edad (años)</label>
-        <input
-          className="text-input"
-          type="number"
-          placeholder="Ej: 2"
-          value={age}
-          onChange={(e) => setAge(e.target.value)}
-        />
-
-        <button className="save-btn" onClick={handleSave} disabled={saving}>
-          {saving ? 'Guardando…' : 'Guardar mascota'}
-        </button>
-      </div>
-    </div>
+    </nav>
   );
 }
 
 // ============================================================
-// 🏠 PANTALLA 1: INICIO
+// 🏠 PANTALLA DE INICIO (resumen y accesos rápidos)
 // ============================================================
-function HomeScreen({ userName, pets, selectedPetId, setSelectedPetId, addPet, vaccineStatus, toggleVaccine, addingPet }) {
-  const [sosVisible, setSosVisible] = useState(false);
-  const [addPetVisible, setAddPetVisible] = useState(false);
-
-  const selectedPet = pets.find((p) => p.id === selectedPetId) || pets[0];
-
-  const petVaccines = useMemo(() => {
-    if (!selectedPet) return [];
-    return VACCINE_CATALOG.filter((v) => v.species.includes(selectedPet.type));
-  }, [selectedPet]);
-
-  const handleSavePet = async (petData) => {
-    const newPet = await addPet(petData);
-    if (newPet) setAddPetVisible(false);
-  };
+function HomeScreen({ userName, pets, alerts, setActiveTab }) {
+  const proximas = alerts.filter((a) => a.dias >= 0).slice(0, 3);
+  const vencidas = alerts.filter((a) => a.dias < 0).slice(0, 3);
 
   return (
     <div className="screen">
       <div className="header-row">
         <div>
           <h1 className="greeting">¡Hola, {userName}! 🐾</h1>
-          <p className="sub-greeting">Cuidemos juntos a tu familia peluda</p>
+          <p className="sub-greeting">
+            {pets.length > 0
+              ? `Hoy es un gran día para cuidar a ${pets.map((p) => p.name).slice(0, 2).join(' y ')}`
+              : 'Registra tu primera mascota para empezar'}
+          </p>
         </div>
         <div className="header-icons">
           <div className="icon-btn">
             <Bell size={20} />
           </div>
-          <div className="avatar-circle">
-            <PawPrint size={18} />
-          </div>
         </div>
       </div>
 
-      <button className="sos-button" onClick={() => setSosVisible(true)}>
+      <button className="sos-button" onClick={() => setActiveTab('sos')}>
         <div>
           <p className="sos-title">Botón SOS</p>
           <p className="sos-subtitle">Emergencia veterinaria 24/7</p>
@@ -335,73 +86,114 @@ function HomeScreen({ userName, pets, selectedPetId, setSelectedPetId, addPet, v
         </div>
       </button>
 
-      <div className="section-header-row">
-        <h2 className="section-title">Mis Mascotas</h2>
-        <PawPrint size={18} color="#A5D6A7" />
-      </div>
+      {(vencidas.length > 0 || proximas.length > 0) && (
+        <>
+          <div className="section-header-row">
+            <h2 className="section-title">Recordatorios</h2>
+            <Syringe size={18} color="#FF8A80" />
+          </div>
+          <div className="alert-list">
+            {vencidas.map((a) => (
+              <button key={a.id} className="alert-item danger" onClick={() => setActiveTab('pets')}>
+                <AlertTriangle size={16} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="alert-title">{a.name} — {a.petName}</p>
+                  <p className="alert-sub">Vencida hace {Math.abs(a.dias)} días</p>
+                </div>
+                <ChevronRight size={15} />
+              </button>
+            ))}
+            {proximas.map((a) => (
+              <button key={a.id} className="alert-item warn" onClick={() => setActiveTab('pets')}>
+                <Calendar size={16} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="alert-title">{a.name} — {a.petName}</p>
+                  <p className="alert-sub">
+                    {a.dias === 0 ? 'Es hoy' : `En ${a.dias} días`} · {formatDate(a.next_date)}
+                  </p>
+                </div>
+                <ChevronRight size={15} />
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
-      <div className="scroll-x">
-        {pets.map((pet) => (
-          <PetCard key={pet.id} pet={pet} selected={pet.id === selectedPet?.id} onClick={() => setSelectedPetId(pet.id)} />
-        ))}
-        <button className="add-pet-card" onClick={() => setAddPetVisible(true)}>
-          <Plus size={26} />
-          Agregar
+      <div className="section-header-row">
+        <h2 className="section-title">Tus Mascotas</h2>
+        <button className="link-btn" onClick={() => setActiveTab('pets')}>
+          Ver todas <ChevronRight size={13} />
         </button>
       </div>
 
+      {pets.length === 0 ? (
+        <button className="add-pet-wide" onClick={() => setActiveTab('pets')}>
+          Registrar mi primera mascota
+        </button>
+      ) : (
+        <div className="scroll-x">
+          {pets.map((pet) => (
+            <button key={pet.id} className="pet-card" onClick={() => setActiveTab('pets')}>
+              <PetAvatar type={pet.type} size={64} photoUrl={pet.photo_url} />
+              <p className="pet-card-name">{pet.name}</p>
+              <p className="pet-card-meta">{pet.type} • {pet.breed}</p>
+              <div className="pet-card-chips">
+                <span className="pet-chip">{pet.weight}kg</span>
+                <span className="pet-chip">{formatAge(pet)}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="section-header-row" style={{ marginTop: 24 }}>
-        <h2 className="section-title">Calendario de Vacunas (Chile)</h2>
-        <Syringe size={18} color="#FF8A80" />
+        <h2 className="section-title">Gestión y Cuidados</h2>
+      </div>
+      <div className="quick-grid">
+        <button className="quick-card mint" onClick={() => setActiveTab('calc')}>
+          <Utensils size={20} />
+          <p className="quick-title">Alimentación</p>
+          <p className="quick-sub">Ración y stock</p>
+        </button>
+        <button className="quick-card coral" onClick={() => setActiveTab('pets')}>
+          <Syringe size={20} />
+          <p className="quick-title">Vacunas</p>
+          <p className="quick-sub">Próximas citas</p>
+        </button>
+        <button className="quick-card gray" onClick={() => setActiveTab('community')}>
+          <Users size={20} />
+          <p className="quick-title">Comunidad</p>
+          <p className="quick-sub">Perdidas y adopción</p>
+        </button>
+        <button className="quick-card gray" onClick={() => setActiveTab('sos')}>
+          <Siren size={20} />
+          <p className="quick-title">Mapa SOS</p>
+          <p className="quick-sub">Clínicas cerca</p>
+        </button>
       </div>
 
-      {selectedPet ? (
-        <div className="vaccine-list">
-          {petVaccines.map((vaccine) => {
-            const done = !!vaccineStatus[`${selectedPet.id}_${vaccine.id}`];
-            return (
-              <div key={vaccine.id} className="vaccine-item">
-                <div>
-                  <p className="vaccine-name">{vaccine.name}</p>
-                  <p className="vaccine-tag">
-                    {vaccine.obligatory ? 'Obligatoria' : 'Sugerida'} • {selectedPet.name}
-                  </p>
-                </div>
-                <button
-                  className={`vaccine-btn ${done ? 'done' : ''}`}
-                  onClick={() => toggleVaccine(selectedPet.id, vaccine.id, !done)}
-                >
-                  {done ? (
-                    <>
-                      <Check size={16} /> Lista
-                    </>
-                  ) : (
-                    'Recordar'
-                  )}
-                </button>
-              </div>
-            );
-          })}
+      <div className="tip-card">
+        <Heart size={16} color="#43A047" />
+        <div>
+          <p className="tip-title">Consejo del día</p>
+          <p className="tip-text">
+            Dividir la ración diaria en dos tomas ayuda a la digestión y mantiene los niveles de energía
+            estables durante el día.
+          </p>
         </div>
-      ) : (
-        <p className="empty-text">Agrega una mascota para ver su calendario.</p>
-      )}
-
-      {sosVisible && <SosModal onClose={() => setSosVisible(false)} pet={selectedPet} />}
-      {addPetVisible && (
-        <AddPetModal onClose={() => setAddPetVisible(false)} onSave={handleSavePet} saving={addingPet} />
-      )}
+      </div>
     </div>
   );
 }
 
 // ============================================================
-// 🧮 PANTALLA 2: CALCULADORA INTELIGENTE
+// 🧮 CALCULADORA (alimento y arena)
 // ============================================================
 function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
   const [qualityId, setQualityId] = useState('premium');
   const [bagSize, setBagSize] = useState('');
   const [alertOn, setAlertOn] = useState(false);
+  const [numCats, setNumCats] = useState('1');
 
   const selectedPet = pets.find((p) => p.id === selectedPetId) || pets[0];
   const quality = FOOD_QUALITY.find((q) => q.id === qualityId) || FOOD_QUALITY[1];
@@ -417,20 +209,35 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
     return Math.floor(bagKg / (dailyPortionGrams / 1000));
   }, [bagSize, dailyPortionGrams]);
 
+  const restockDate = useMemo(() => {
+    if (bagDurationDays <= 0) return null;
+    const d = new Date();
+    d.setDate(d.getDate() + bagDurationDays - 3);
+    return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' });
+  }, [bagDurationDays]);
+
   const isCat = selectedPet?.type === 'Gato';
-  const weeklyLitterKg = 1.5;
+  const catCount = Math.max(1, parseInt(numCats) || 1);
+  const weeklyLitterKg = 1.5 * catCount;
+
+  if (!selectedPet) {
+    return (
+      <div className="screen">
+        <h1 className="screen-title">Calculadora</h1>
+        <p className="empty-text">Registra una mascota para usar la calculadora.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="screen">
       <h1 className="screen-title">Calculadora Inteligente</h1>
       <p className="screen-subtitle">Alimento y arena sanitaria</p>
 
-      <label className="input-label" style={{ marginTop: 0 }}>
-        ¿Para quién calculamos?
-      </label>
+      <label className="input-label" style={{ marginTop: 0 }}>¿Para quién calculamos?</label>
       <div className="scroll-x" style={{ marginBottom: 8 }}>
         {pets.map((pet) => {
-          const active = pet.id === selectedPet?.id;
+          const active = pet.id === selectedPet.id;
           return (
             <button
               key={pet.id}
@@ -462,6 +269,7 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
       <input
         className="text-input"
         type="number"
+        step="0.5"
         placeholder="Ej: 15"
         value={bagSize}
         onChange={(e) => setBagSize(e.target.value)}
@@ -477,6 +285,15 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
           <span className="result-label">Duración estimada del saco</span>
           <span className="result-value">{bagDurationDays > 0 ? `${bagDurationDays} días` : '—'}</span>
         </div>
+        {bagDurationDays > 0 && (
+          <>
+            <div className="result-divider" />
+            <div className="result-row">
+              <span className="result-label">Sugerimos recomprar el</span>
+              <span className="result-value">{restockDate}</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="switch-row">
@@ -494,20 +311,29 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
       </div>
       {alertOn && (
         <div className="alert-confirm-box">
-          ✅ Listo, te notificaremos 3 días antes de que se acabe el alimento de {selectedPet?.name}.
+          ✅ Listo, te notificaremos 3 días antes de que se acabe el alimento de {selectedPet.name}
+          {restockDate ? ` (alrededor del ${restockDate})` : ''}.
         </div>
       )}
 
       {isCat && (
         <>
           <div className="section-header-row" style={{ marginTop: 24 }}>
-            <h2 className="section-title">Cálculo de Arena Sanitaria</h2>
+            <h2 className="section-title">Arena Sanitaria</h2>
             <ShoppingBag size={18} color="#FF8A80" />
           </div>
+          <label className="input-label" style={{ marginTop: 0 }}>¿Cuántos gatos usan la arena?</label>
+          <input
+            className="text-input"
+            type="number"
+            min="1"
+            value={numCats}
+            onChange={(e) => setNumCats(e.target.value)}
+          />
           <div className="result-card sand">
             <div className="result-row">
               <span className="result-label">Consumo semanal estimado</span>
-              <span className="result-value">{weeklyLitterKg} kg</span>
+              <span className="result-value">{weeklyLitterKg.toFixed(1)} kg</span>
             </div>
             <div className="result-divider" />
             <div className="result-row">
@@ -522,86 +348,62 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
 }
 
 // ============================================================
-// 🗺️ PANTALLA 3: SERVICIOS CERCANOS (Google Maps real)
+// 👤 PANTALLA DE PERFIL
 // ============================================================
-function MapScreen() {
-  const [activeFilter, setActiveFilter] = useState('Todos');
-
-  const filteredPlaces = useMemo(() => {
-    const category = FILTER_TO_CATEGORY[activeFilter];
-    if (!category) return PLACES;
-    return PLACES.filter((p) => p.category === category);
-  }, [activeFilter]);
-
-  const mapQuery = useMemo(() => {
-    if (activeFilter === 'Todos') return 'veterinarias y pet shops en Peñalolén, Santiago, Chile';
-    if (activeFilter === 'Urgencias 24/7') return 'urgencias veterinarias 24 horas en Peñalolén, Santiago, Chile';
-    if (activeFilter === 'Pet Shops / Tiendas') return 'pet shops en Peñalolén, Santiago, Chile';
-    return 'veterinarias en Peñalolén, Santiago, Chile';
-  }, [activeFilter]);
-
-  const handleCall = (place) => {
-    window.alert(`📞 Llamando a ${place.name}\n${place.address}`);
-  };
-
-  const handleRoute = (place) => {
-    const dest = encodeURIComponent(`${place.name}, ${place.address}, Chile`);
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, '_blank', 'noopener,noreferrer');
-  };
+function ProfileScreen({ session, pets, alerts, onSignOut }) {
+  const user = session.user;
+  const name = user.user_metadata?.full_name || user.email;
+  const avatar = user.user_metadata?.avatar_url;
+  const memberSince = formatDate(user.created_at?.slice(0, 10));
 
   return (
-    <div className="screen" style={{ padding: '0 0 110px' }}>
-      <div className="gps-header">
-        <MapPin size={16} color="#FF8A80" />
-        Ubicación: Peñalolén, Santiago
-      </div>
+    <div className="screen">
+      <h1 className="screen-title">Mi Perfil</h1>
+      <p className="screen-subtitle">Tu cuenta en FamiliaPet</p>
 
-      <div className="filter-scroll">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            className={`filter-chip ${f === activeFilter ? 'active' : ''}`}
-            onClick={() => setActiveFilter(f)}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ padding: '0 20px' }}>
-        <div className="map-frame-wrap">
-          <iframe
-            title="Mapa de servicios cercanos"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=14&output=embed`}
-          />
+      <div className="profile-card">
+        <div className="profile-avatar">
+          {avatar ? <img src={avatar} alt={name} /> : <User size={30} color="#fff" />}
         </div>
-
-        <div className="section-header-row">
-          <h2 className="section-title">Lugares cercanos</h2>
-          <LayoutGrid size={18} color="#A5D6A7" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p className="profile-name">{name}</p>
+          <p className="profile-email">{user.email}</p>
+          {memberSince && <p className="profile-since">Miembro desde {memberSince}</p>}
         </div>
-
-        {filteredPlaces.map((place) => (
-          <div key={place.id} className="place-card">
-            <span className="place-dot" style={{ background: CATEGORY_COLOR[place.category] }} />
-            <div style={{ flex: 1 }}>
-              <p className="place-name">{place.name}</p>
-              <p className="place-subtitle">{place.subtitle}</p>
-              <p className="place-address">{place.address}</p>
-            </div>
-            <div className="place-actions">
-              <button className="place-action-btn" onClick={() => handleCall(place)} aria-label="Llamar">
-                <Phone size={15} />
-              </button>
-              <button className="place-action-btn route" onClick={() => handleRoute(place)} aria-label="Cómo llegar">
-                <Navigation size={15} />
-              </button>
-            </div>
-          </div>
-        ))}
       </div>
+
+      <div className="stats-grid">
+        <div className="stat-card">
+          <p className="stat-num">{pets.length}</p>
+          <p className="stat-label">Mascotas</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-num">{alerts.filter((a) => a.dias >= 0).length}</p>
+          <p className="stat-label">Vacunas próximas</p>
+        </div>
+        <div className="stat-card">
+          <p className="stat-num">{alerts.filter((a) => a.dias < 0).length}</p>
+          <p className="stat-label">Vencidas</p>
+        </div>
+      </div>
+
+      <div className="section-header-row" style={{ marginTop: 24 }}>
+        <h2 className="section-title">Sobre FamiliaPet</h2>
+      </div>
+      <div className="info-card">
+        <p>
+          FamiliaPet te ayuda a llevar el control de vacunas, alimentación y emergencias de tus mascotas,
+          además de conectarte con la comunidad para reportar mascotas perdidas o en adopción.
+        </p>
+        <p className="info-note">
+          Los cálculos de alimento son estimaciones referenciales. Consulta siempre a tu médico veterinario
+          para las necesidades específicas de tu mascota.
+        </p>
+      </div>
+
+      <button className="signout-btn" onClick={onSignOut}>
+        <LogOut size={16} /> Cerrar sesión
+      </button>
     </div>
   );
 }
@@ -610,7 +412,7 @@ function MapScreen() {
 // 🔐 PANTALLA DE AUTENTICACIÓN
 // ============================================================
 function AuthScreen() {
-  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -637,7 +439,7 @@ function AuthScreen() {
     } else {
       const { error } = await supabase.auth.signUp({ email, password });
       if (error) setError(error.message);
-      else setInfo('¡Cuenta creada! Revisa tu correo para confirmar tu cuenta e inicia sesión.');
+      else setInfo('¡Cuenta creada! Revisa tu correo para confirmar y luego inicia sesión.');
     }
     setLoading(false);
   };
@@ -671,8 +473,7 @@ function AuthScreen() {
 
       <form onSubmit={handleSubmit}>
         <label className="input-label" style={{ marginTop: 0 }}>
-          <Mail size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-          Correo
+          <Mail size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Correo
         </label>
         <input
           className="text-input"
@@ -684,8 +485,7 @@ function AuthScreen() {
         />
 
         <label className="input-label">
-          <Lock size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-          Contraseña
+          <Lock size={12} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Contraseña
         </label>
         <input
           className="text-input"
@@ -712,138 +512,133 @@ function AuthScreen() {
 // 🚀 APP PRINCIPAL
 // ============================================================
 export default function App() {
-  const [session, setSession] = useState(undefined); // undefined = cargando, null = sin sesión
+  const [session, setSession] = useState(undefined);
   const [activeTab, setActiveTab] = useState('home');
   const [pets, setPets] = useState([]);
   const [selectedPetId, setSelectedPetId] = useState(null);
-  const [vaccineStatus, setVaccineStatus] = useState({});
-  const [addingPet, setAddingPet] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+  const [loadingData, setLoadingData] = useState(true);
 
-  // Escucha el estado de autenticación de Supabase
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Carga las mascotas y vacunas del usuario cuando inicia sesión
+  const loadPets = async (userId) => {
+    let { data: rows } = await supabase.from('pets').select('*').order('created_at', { ascending: true });
+    if (!rows || rows.length === 0) {
+      const seeds = SEED_PETS.map((p) => ({ ...p, user_id: userId }));
+      const { data: inserted } = await supabase.from('pets').insert(seeds).select();
+      rows = inserted || [];
+    }
+    setPets(rows);
+    setSelectedPetId((prev) => (rows.find((p) => p.id === prev) ? prev : rows[0]?.id || null));
+    return rows;
+  };
+
+  const loadAlerts = async (petRows) => {
+    const ids = petRows.map((p) => p.id);
+    if (ids.length === 0) {
+      setAlerts([]);
+      return;
+    }
+    const { data } = await supabase
+      .from('pet_vaccines')
+      .select('*')
+      .in('pet_id', ids)
+      .eq('done', false)
+      .not('next_date', 'is', null);
+    const mapped = (data || [])
+      .map((v) => ({
+        ...v,
+        dias: daysUntil(v.next_date),
+        petName: petRows.find((p) => p.id === v.pet_id)?.name || '',
+      }))
+      .filter((v) => v.dias !== null && v.dias <= 60)
+      .sort((a, b) => a.dias - b.dias);
+    setAlerts(mapped);
+  };
+
   useEffect(() => {
     if (!session?.user) return;
     (async () => {
-      let { data: petRows } = await supabase
-        .from('pets')
-        .select('*')
-        .order('created_at', { ascending: true });
-
-      if (!petRows || petRows.length === 0) {
-        const seeds = SEED_PETS.map((p) => ({ ...p, user_id: session.user.id }));
-        const { data: inserted } = await supabase.from('pets').insert(seeds).select();
-        petRows = inserted || [];
-      }
-
-      setPets(petRows);
-      setSelectedPetId(petRows[0]?.id || null);
-
-      const petIds = petRows.map((p) => p.id);
-      if (petIds.length > 0) {
-        const { data: vaccineRows } = await supabase
-          .from('vaccine_status')
-          .select('*')
-          .in('pet_id', petIds);
-        const statusMap = {};
-        (vaccineRows || []).forEach((row) => {
-          statusMap[`${row.pet_id}_${row.vaccine_id}`] = row.done;
-        });
-        setVaccineStatus(statusMap);
-      }
+      setLoadingData(true);
+      const rows = await loadPets(session.user.id);
+      await loadAlerts(rows);
+      setLoadingData(false);
     })();
   }, [session?.user?.id]);
 
-  const addPet = async (petData) => {
-    if (!session?.user) return null;
-    setAddingPet(true);
+  const createPet = async (payload) => {
     const { data, error } = await supabase
       .from('pets')
-      .insert({ ...petData, user_id: session.user.id })
+      .insert({ ...payload, user_id: session.user.id })
       .select()
       .single();
-    setAddingPet(false);
-    if (error) {
-      window.alert('No se pudo guardar la mascota: ' + error.message);
-      return null;
-    }
+    if (error) throw error;
     setPets((prev) => [...prev, data]);
     setSelectedPetId(data.id);
-    return data;
   };
 
-  const toggleVaccine = async (petId, vaccineId, done) => {
-    // Actualiza la UI de inmediato (reactividad) y luego sincroniza con Supabase
-    setVaccineStatus((prev) => ({ ...prev, [`${petId}_${vaccineId}`]: done }));
-    await supabase.from('vaccine_status').upsert(
-      { pet_id: petId, vaccine_id: vaccineId, done, updated_at: new Date().toISOString() },
-      { onConflict: 'pet_id,vaccine_id' }
-    );
+  const updatePet = async (id, payload) => {
+    const { data, error } = await supabase.from('pets').update(payload).eq('id', id).select().single();
+    if (error) throw error;
+    setPets((prev) => prev.map((p) => (p.id === id ? data : p)));
+  };
+
+  const deletePet = async (id) => {
+    const { error } = await supabase.from('pets').delete().eq('id', id);
+    if (error) {
+      window.alert('No se pudo eliminar: ' + error.message);
+      return;
+    }
+    const remaining = pets.filter((p) => p.id !== id);
+    setPets(remaining);
+    if (selectedPetId === id) setSelectedPetId(remaining[0]?.id || null);
+    await loadAlerts(remaining);
   };
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setPets([]);
-    setVaccineStatus({});
+    setAlerts([]);
     setSelectedPetId(null);
+    setActiveTab('home');
   };
 
-  if (session === undefined) {
-    return <div className="center-loading">Cargando FamiliaPet…</div>;
-  }
+  if (session === undefined) return <div className="center-loading">Cargando FamiliaPet…</div>;
+  if (!session) return <AuthScreen />;
 
-  if (!session) {
-    return <AuthScreen />;
-  }
-
-  const userName = session.user.user_metadata?.full_name?.split(' ')[0] || session.user.email?.split('@')[0] || 'DogLover';
+  const userName =
+    session.user.user_metadata?.full_name?.split(' ')[0] ||
+    session.user.email?.split('@')[0] ||
+    'DogLover';
 
   return (
     <div className="app-shell">
+      {loadingData && <div className="top-loading">Sincronizando…</div>}
+
       {activeTab === 'home' && (
-        <HomeScreen
-          userName={userName}
+        <HomeScreen userName={userName} pets={pets} alerts={alerts} setActiveTab={setActiveTab} />
+      )}
+      {activeTab === 'pets' && (
+        <PetsScreen
           pets={pets}
-          selectedPetId={selectedPetId}
-          setSelectedPetId={setSelectedPetId}
-          addPet={addPet}
-          addingPet={addingPet}
-          vaccineStatus={vaccineStatus}
-          toggleVaccine={toggleVaccine}
+          userId={session.user.id}
+          onCreate={createPet}
+          onUpdate={updatePet}
+          onDelete={deletePet}
         />
       )}
       {activeTab === 'calc' && (
         <CalcScreen pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} />
       )}
-      {activeTab === 'map' && <MapScreen />}
-
-      <button
-        onClick={handleSignOut}
-        style={{
-          position: 'fixed',
-          top: 14,
-          right: 14,
-          zIndex: 45,
-          background: 'rgba(255,255,255,0.9)',
-          borderRadius: 20,
-          padding: '6px 10px',
-          fontSize: 11,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          color: '#78909C',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        }}
-      >
-        <LogOut size={12} /> Salir
-      </button>
+      {activeTab === 'community' && <CommunityScreen userId={session.user.id} />}
+      {activeTab === 'sos' && <SosScreen pets={pets} />}
+      {activeTab === 'profile' && (
+        <ProfileScreen session={session} pets={pets} alerts={alerts} onSignOut={handleSignOut} />
+      )}
 
       <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />
     </div>

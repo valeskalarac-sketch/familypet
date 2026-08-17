@@ -83,8 +83,8 @@ function PostForm({ post, userId, onClose, onSaved }) {
       <input className="text-input" placeholder="Ej: Rocky" value={petName} onChange={(e) => setPetName(e.target.value)} />
 
       <label className="input-label">Especie</label>
-      <div className="type-selector-row">
-        {['Perro', 'Gato', 'Otro'].map((s) => (
+      <div className="type-selector-row wrap">
+        {['Perro', 'Gato', 'Ave', 'Roedor', 'Conejo', 'Reptil', 'Otro'].map((s) => (
           <button key={s} className={`type-chip ${species === s ? 'active' : ''}`} onClick={() => setSpecies(s)}>
             {s}
           </button>

@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Bell, LogOut, PawPrint, Siren, Home as HomeIcon, Calculator as CalculatorIcon,
-  User, Users, Dog, Cat, Mail, Lock, ShoppingBag, Syringe, ChevronRight,
-  Calendar, AlertTriangle, Utensils, Heart,
+  User, Users, Mail, Lock, ShoppingBag, Syringe, ChevronRight,
+  Calendar, AlertTriangle, Utensils, Heart, MapPin, Pencil,
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { PetAvatar } from './components';
-import { FOOD_QUALITY, formatAge, formatDate, daysUntil } from './lib';
+import { PetAvatar, Modal, SpeciesIcon } from './components';
+import { FOOD_QUALITY, formatAge, formatDate, daysUntil, COMUNAS, getComuna, saveComuna, firstName, getSpeciesGroup, getSpeciesMeta, SPECIES_WITH_FOOD_FORMULA } from './lib';
 import PetsScreen from './PetsScreen';
 import CommunityScreen from './CommunityScreen';
 import SosScreen from './SosScreen';
@@ -52,14 +52,131 @@ function TabBar({ activeTab, setActiveTab }) {
 }
 
 // ============================================================
+// 📍 SELECTOR DE COMUNA
+// ============================================================
+function ComunaModal({ current, onClose, onSaved }) {
+  const [value, setValue] = useState(current || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!value.trim()) {
+      window.alert('Escribe o elige tu comuna.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveComuna(value.trim());
+      onSaved(value.trim());
+      onClose();
+    } catch (err) {
+      window.alert('No se pudo guardar: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Mi comuna" onClose={onClose}>
+      <p className="confirm-msg">
+        La usamos para mostrarte veterinarias y urgencias cercanas en el mapa.
+      </p>
+
+      <label className="input-label">Escribe tu comuna o ciudad</label>
+      <input
+        className="text-input"
+        list="comunas-list"
+        placeholder="Ej: Ñuñoa"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      <datalist id="comunas-list">
+        {COMUNAS.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
+
+      <label className="input-label">O elige una frecuente</label>
+      <div className="comuna-grid">
+        {COMUNAS.slice(0, 18).map((c) => (
+          <button
+            key={c}
+            className={`comuna-chip ${value === c ? 'active' : ''}`}
+            onClick={() => setValue(c)}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      <button className="save-btn" onClick={handleSave} disabled={saving}>
+        {saving ? 'Guardando…' : 'Guardar comuna'}
+      </button>
+    </Modal>
+  );
+}
+
+// ============================================================
+// 🔔 PANEL DE NOTIFICACIONES
+// ============================================================
+function NotificationsModal({ alerts, onClose, onGoToPets }) {
+  return (
+    <Modal title="Notificaciones" onClose={onClose}>
+      {alerts.length === 0 ? (
+        <div className="notif-empty">
+          <Bell size={30} color="#CFD8DC" />
+          <p>Todo al día. No tienes vacunas próximas ni vencidas.</p>
+        </div>
+      ) : (
+        <div className="alert-list">
+          {alerts.map((a) => {
+            const vencida = a.dias < 0;
+            return (
+              <button key={a.id} className={`alert-item ${vencida ? 'danger' : 'warn'}`} onClick={onGoToPets}>
+                {vencida ? <AlertTriangle size={16} /> : <Calendar size={16} />}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="alert-title">{a.name} — {a.petName}</p>
+                  <p className="alert-sub">
+                    {vencida
+                      ? `Vencida hace ${Math.abs(a.dias)} días`
+                      : a.dias === 0
+                      ? 'Corresponde hoy'
+                      : `En ${a.dias} días · ${formatDate(a.next_date)}`}
+                  </p>
+                </div>
+                <ChevronRight size={15} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <p className="form-note">
+        Los recordatorios se calculan a partir de las fechas de refuerzo que registras en cada vacuna.
+        Agrega la próxima dosis al crear o editar una vacuna para recibir avisos aquí.
+      </p>
+    </Modal>
+  );
+}
+
+// ============================================================
 // 🏠 PANTALLA DE INICIO (resumen y accesos rápidos)
 // ============================================================
 function HomeScreen({ userName, pets, alerts, setActiveTab }) {
   const proximas = alerts.filter((a) => a.dias >= 0).slice(0, 3);
   const vencidas = alerts.filter((a) => a.dias < 0).slice(0, 3);
+  const [bellOpen, setBellOpen] = useState(false);
 
   return (
     <div className="screen">
+      {/* Barra de marca */}
+      <div className="brand-bar">
+        <img className="brand-mark" src="/logo-mark.png" alt="" aria-hidden="true" />
+        <span className="brand-name">FamiliaPet</span>
+        <button className="icon-btn" onClick={() => setBellOpen(true)} aria-label="Notificaciones">
+          <Bell size={20} />
+          {alerts.length > 0 && <span className="bell-badge">{alerts.length}</span>}
+        </button>
+      </div>
+
       <div className="header-row">
         <div>
           <h1 className="greeting">¡Hola, {userName}! 🐾</h1>
@@ -69,12 +186,18 @@ function HomeScreen({ userName, pets, alerts, setActiveTab }) {
               : 'Registra tu primera mascota para empezar'}
           </p>
         </div>
-        <div className="header-icons">
-          <div className="icon-btn">
-            <Bell size={20} />
-          </div>
-        </div>
       </div>
+
+      {bellOpen && (
+        <NotificationsModal
+          alerts={alerts}
+          onClose={() => setBellOpen(false)}
+          onGoToPets={() => {
+            setBellOpen(false);
+            setActiveTab('pets');
+          }}
+        />
+      )}
 
       <button className="sos-button" onClick={() => setActiveTab('sos')}>
         <div>
@@ -134,7 +257,7 @@ function HomeScreen({ userName, pets, alerts, setActiveTab }) {
         <div className="scroll-x">
           {pets.map((pet) => (
             <button key={pet.id} className="pet-card" onClick={() => setActiveTab('pets')}>
-              <PetAvatar type={pet.type} size={64} photoUrl={pet.photo_url} />
+              <PetAvatar pet={pet} size={64} photoUrl={pet.photo_url} />
               <p className="pet-card-name">{pet.name}</p>
               <p className="pet-card-meta">{pet.type} • {pet.breed}</p>
               <div className="pet-card-chips">
@@ -216,7 +339,9 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
     return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' });
   }, [bagDurationDays]);
 
-  const isCat = selectedPet?.type === 'Gato';
+  const group = selectedPet ? getSpeciesGroup(selectedPet) : 'otro';
+  const isCat = group === 'gato';
+  const hasFormula = SPECIES_WITH_FOOD_FORMULA.includes(group);
   const catCount = Math.max(1, parseInt(numCats) || 1);
   const weeklyLitterKg = 1.5 * catCount;
 
@@ -244,76 +369,93 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
               className={`pet-pill ${active ? 'active' : ''}`}
               onClick={() => setSelectedPetId(pet.id)}
             >
-              {pet.type === 'Gato' ? <Cat size={16} /> : <Dog size={16} />}
+              <SpeciesIcon pet={pet} size={16} />
               {pet.name}
             </button>
           );
         })}
       </div>
 
-      <label className="input-label">Calidad del alimento</label>
-      <div className="quality-row">
-        {FOOD_QUALITY.map((q) => (
-          <button
-            key={q.id}
-            className={`quality-card ${q.id === qualityId ? 'active' : ''}`}
-            onClick={() => setQualityId(q.id)}
-          >
-            <div className="quality-label">{q.label}</div>
-            <div className="quality-factor">{q.factor}g / kg</div>
-          </button>
-        ))}
-      </div>
-
-      <label className="input-label">Tamaño del saco actual (kg)</label>
-      <input
-        className="text-input"
-        type="number"
-        step="0.5"
-        placeholder="Ej: 15"
-        value={bagSize}
-        onChange={(e) => setBagSize(e.target.value)}
-      />
-
-      <div className="result-card">
-        <div className="result-row">
-          <span className="result-label">Porción diaria recomendada</span>
-          <span className="result-value">{dailyPortionGrams} g/día</span>
+      {!hasFormula ? (
+        <div className="info-card" style={{ marginTop: 18 }}>
+          <p>
+            Todavía no tenemos una fórmula validada de ración para{' '}
+            <strong>{getSpeciesMeta(group).label.toLowerCase()}s</strong>. Las necesidades
+            nutricionales varían mucho entre especies y no queremos darte un número inventado.
+          </p>
+          <p className="info-note">
+            Consulta con un veterinario especializado en animales exóticos para la ración de{' '}
+            {selectedPet.name}. Puedes usar el resto de la app para llevar su ficha, vacunas y
+            controles.
+          </p>
         </div>
-        <div className="result-divider" />
-        <div className="result-row">
-          <span className="result-label">Duración estimada del saco</span>
-          <span className="result-value">{bagDurationDays > 0 ? `${bagDurationDays} días` : '—'}</span>
-        </div>
-        {bagDurationDays > 0 && (
-          <>
+      ) : (
+        <>
+          <label className="input-label">Calidad del alimento</label>
+          <div className="quality-row">
+            {FOOD_QUALITY.map((q) => (
+              <button
+                key={q.id}
+                className={`quality-card ${q.id === qualityId ? 'active' : ''}`}
+                onClick={() => setQualityId(q.id)}
+              >
+                <div className="quality-label">{q.label}</div>
+                <div className="quality-factor">{q.factor}g / kg</div>
+              </button>
+            ))}
+          </div>
+
+          <label className="input-label">Tamaño del saco actual (kg)</label>
+          <input
+            className="text-input"
+            type="number"
+            step="0.5"
+            placeholder="Ej: 15"
+            value={bagSize}
+            onChange={(e) => setBagSize(e.target.value)}
+          />
+
+          <div className="result-card">
+            <div className="result-row">
+              <span className="result-label">Porción diaria recomendada</span>
+              <span className="result-value">{dailyPortionGrams} g/día</span>
+            </div>
             <div className="result-divider" />
             <div className="result-row">
-              <span className="result-label">Sugerimos recomprar el</span>
-              <span className="result-value">{restockDate}</span>
+              <span className="result-label">Duración estimada del saco</span>
+              <span className="result-value">{bagDurationDays > 0 ? `${bagDurationDays} días` : '—'}</span>
             </div>
-          </>
-        )}
-      </div>
+            {bagDurationDays > 0 && (
+              <>
+                <div className="result-divider" />
+                <div className="result-row">
+                  <span className="result-label">Sugerimos recomprar el</span>
+                  <span className="result-value">{restockDate}</span>
+                </div>
+              </>
+            )}
+          </div>
 
-      <div className="switch-row">
-        <div style={{ flex: 1 }}>
-          <p className="switch-label">Alerta de desabastecimiento</p>
-          <p className="switch-sub-label">Te avisamos antes de que se acabe</p>
-        </div>
-        <button
-          className={`toggle ${alertOn ? 'on' : ''}`}
-          onClick={() => setAlertOn((v) => !v)}
-          aria-label="Alerta de desabastecimiento"
-        >
-          <div className="toggle-knob" />
-        </button>
-      </div>
-      {alertOn && (
-        <div className="alert-confirm-box">
-          ✅ Listo, te notificaremos 3 días antes de que se acabe el alimento de {selectedPet.name}
-          {restockDate ? ` (alrededor del ${restockDate})` : ''}.
-        </div>
+          <div className="switch-row">
+            <div style={{ flex: 1 }}>
+              <p className="switch-label">Alerta de desabastecimiento</p>
+              <p className="switch-sub-label">Te avisamos antes de que se acabe</p>
+            </div>
+            <button
+              className={`toggle ${alertOn ? 'on' : ''}`}
+              onClick={() => setAlertOn((v) => !v)}
+              aria-label="Alerta de desabastecimiento"
+            >
+              <div className="toggle-knob" />
+            </button>
+          </div>
+          {alertOn && (
+            <div className="alert-confirm-box">
+              ✅ Listo, te notificaremos 3 días antes de que se acabe el alimento de {selectedPet.name}
+              {restockDate ? ` (alrededor del ${restockDate})` : ''}.
+            </div>
+          )}
+        </>
       )}
 
       {isCat && (
@@ -350,7 +492,7 @@ function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
 // ============================================================
 // 👤 PANTALLA DE PERFIL
 // ============================================================
-function ProfileScreen({ session, pets, alerts, onSignOut }) {
+function ProfileScreen({ session, pets, alerts, comuna, onEditComuna, onSignOut }) {
   const user = session.user;
   const name = user.user_metadata?.full_name || user.email;
   const avatar = user.user_metadata?.avatar_url;
@@ -372,6 +514,17 @@ function ProfileScreen({ session, pets, alerts, onSignOut }) {
         </div>
       </div>
 
+      <button className="setting-row" onClick={onEditComuna}>
+        <div className="setting-icon">
+          <MapPin size={17} color="#43A047" />
+        </div>
+        <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+          <p className="setting-title">Mi comuna</p>
+          <p className="setting-value">{comuna}</p>
+        </div>
+        <Pencil size={15} color="#78909C" />
+      </button>
+
       <div className="stats-grid">
         <div className="stat-card">
           <p className="stat-num">{pets.length}</p>
@@ -391,6 +544,7 @@ function ProfileScreen({ session, pets, alerts, onSignOut }) {
         <h2 className="section-title">Sobre FamiliaPet</h2>
       </div>
       <div className="info-card">
+        <img className="info-logo" src="/logo.png" alt="FamiliaPet" />
         <p>
           FamiliaPet te ayuda a llevar el control de vacunas, alimentación y emergencias de tus mascotas,
           además de conectarte con la comunidad para reportar mascotas perdidas o en adopción.
@@ -446,8 +600,7 @@ function AuthScreen() {
 
   return (
     <div className="auth-screen">
-      <div className="auth-logo">🐾</div>
-      <h1 className="auth-title">FamiliaPet</h1>
+      <img className="auth-logo-img" src="/logo.png" alt="FamiliaPet" />
       <p className="auth-subtitle">Cuida a tu familia peluda desde un solo lugar</p>
 
       <div className="auth-toggle-row">
@@ -518,6 +671,8 @@ export default function App() {
   const [selectedPetId, setSelectedPetId] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [comuna, setComuna] = useState(null);
+  const [comunaOpen, setComunaOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -562,6 +717,7 @@ export default function App() {
 
   useEffect(() => {
     if (!session?.user) return;
+    setComuna(getComuna(session));
     (async () => {
       setLoadingData(true);
       const rows = await loadPets(session.user.id);
@@ -607,13 +763,16 @@ export default function App() {
     setActiveTab('home');
   };
 
-  if (session === undefined) return <div className="center-loading">Cargando FamiliaPet…</div>;
+  if (session === undefined)
+    return (
+      <div className="center-loading">
+        <img className="loading-logo" src="/logo-mark.png" alt="FamiliaPet" />
+        <p>Cargando FamiliaPet…</p>
+      </div>
+    );
   if (!session) return <AuthScreen />;
 
-  const userName =
-    session.user.user_metadata?.full_name?.split(' ')[0] ||
-    session.user.email?.split('@')[0] ||
-    'DogLover';
+  const userName = firstName(session.user);
 
   return (
     <div className="app-shell">
@@ -635,9 +794,22 @@ export default function App() {
         <CalcScreen pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} />
       )}
       {activeTab === 'community' && <CommunityScreen userId={session.user.id} />}
-      {activeTab === 'sos' && <SosScreen pets={pets} />}
+      {activeTab === 'sos' && (
+        <SosScreen pets={pets} comuna={comuna} onEditComuna={() => setComunaOpen(true)} />
+      )}
       {activeTab === 'profile' && (
-        <ProfileScreen session={session} pets={pets} alerts={alerts} onSignOut={handleSignOut} />
+        <ProfileScreen
+          session={session}
+          pets={pets}
+          alerts={alerts}
+          comuna={comuna}
+          onEditComuna={() => setComunaOpen(true)}
+          onSignOut={handleSignOut}
+        />
+      )}
+
+      {comunaOpen && (
+        <ComunaModal current={comuna} onClose={() => setComunaOpen(false)} onSaved={setComuna} />
       )}
 
       <TabBar activeTab={activeTab} setActiveTab={setActiveTab} />

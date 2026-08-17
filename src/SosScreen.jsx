@@ -1,7 +1,10 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Phone, MapPin, Navigation, QrCode, Siren, Share2, Printer, LayoutGrid } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import {
+  Phone, MapPin, Navigation, QrCode, Siren, Share2, Printer,
+  LayoutGrid, Crosshair, ExternalLink, Pencil,
+} from 'lucide-react';
 import { PetAvatar, Modal } from './components';
-import { PLACES, CATEGORY_COLOR, formatAge } from './lib';
+import { PLACES, CATEGORY_COLOR, formatAge, DEFAULT_COMUNA } from './lib';
 
 const FILTERS = ['Todos', 'Urgencias 24/7', 'Pet Shops / Tiendas', 'Veterinarios'];
 const FILTER_TO_CATEGORY = {
@@ -11,31 +14,36 @@ const FILTER_TO_CATEGORY = {
   Veterinarios: 'Veterinarios',
 };
 
+// Términos de búsqueda para el mapa según el filtro activo
+const FILTER_QUERY = {
+  Todos: 'veterinarias y pet shops',
+  'Urgencias 24/7': 'urgencias veterinarias 24 horas',
+  'Pet Shops / Tiendas': 'pet shops tiendas de mascotas',
+  Veterinarios: 'veterinarias',
+};
+
 // ============================================================
-// 🪧 AFICHE DE MASCOTA PERDIDA (con foto y datos completos)
+// 🪧 AFICHE DE MASCOTA PERDIDA
 // ============================================================
-function PosterModal({ pets, onClose }) {
+function PosterModal({ pets, comuna, onClose }) {
   const [petId, setPetId] = useState(pets[0]?.id || null);
   const [contact, setContact] = useState('');
   const [lastSeen, setLastSeen] = useState('');
   const [reward, setReward] = useState('');
-  const posterRef = useRef(null);
 
   const pet = pets.find((p) => p.id === petId);
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleShare = async () => {
-    const text = `🐾 ¡MASCOTA PERDIDA! ${pet?.name || ''} — ${pet?.type}, ${pet?.breed}, ${formatAge(pet || {})}. ${
-      lastSeen ? `Visto por última vez: ${lastSeen}. ` : ''
+    const text = `🐾 ¡MASCOTA PERDIDA! ${pet?.name || ''} — ${pet?.type}, ${pet?.breed}, ${formatAge(
+      pet || {}
+    )}. ${lastSeen ? `Visto por última vez: ${lastSeen}. ` : ''}${
+      comuna ? `Zona: ${comuna}. ` : ''
     }Contacto: ${contact || '(agrega tu contacto)'}`;
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Mascota perdida', text });
       } catch {
-        /* el usuario canceló */
+        /* cancelado por el usuario */
       }
     } else {
       await navigator.clipboard.writeText(text);
@@ -56,11 +64,7 @@ function PosterModal({ pets, onClose }) {
       <label className="input-label">¿Cuál mascota?</label>
       <div className="scroll-x">
         {pets.map((p) => (
-          <button
-            key={p.id}
-            className={`pet-pill ${p.id === petId ? 'active' : ''}`}
-            onClick={() => setPetId(p.id)}
-          >
+          <button key={p.id} className={`pet-pill ${p.id === petId ? 'active' : ''}`} onClick={() => setPetId(p.id)}>
             {p.name}
           </button>
         ))}
@@ -69,30 +73,33 @@ function PosterModal({ pets, onClose }) {
       <label className="input-label">Visto por última vez</label>
       <input
         className="text-input"
-        placeholder="Ej: Plaza Peñalolén, 12 de agosto"
+        placeholder={`Ej: Plaza ${comuna}, 12 de agosto`}
         value={lastSeen}
         onChange={(e) => setLastSeen(e.target.value)}
       />
 
       <label className="input-label">Tu contacto</label>
-      <input
-        className="text-input"
-        placeholder="Ej: +56 9 1234 5678"
-        value={contact}
-        onChange={(e) => setContact(e.target.value)}
-      />
+      <input className="text-input" placeholder="Ej: +56 9 1234 5678" value={contact} onChange={(e) => setContact(e.target.value)} />
 
       <label className="input-label">Recompensa (opcional)</label>
       <input className="text-input" placeholder="Ej: $50.000" value={reward} onChange={(e) => setReward(e.target.value)} />
 
       {/* Afiche imprimible */}
-      <div className="poster" ref={posterRef} id="poster-print">
+      <div className="poster" id="poster-print">
         <p className="poster-title">¡MASCOTA PERDIDA!</p>
 
         {pet.photo_url ? (
           <img className="poster-photo" src={pet.photo_url} alt={pet.name} />
         ) : (
-          <PetAvatar type={pet.type} size={110} photoUrl={null} />
+          <PetAvatar pet={pet} size={110} photoUrl={null} />
+        )}
+
+        {pet.gallery?.length > 0 && (
+          <div className="poster-gallery">
+            {pet.gallery.slice(0, 4).map((url, i) => (
+              <img key={i} src={url} alt={`${pet.name} foto ${i + 2}`} />
+            ))}
+          </div>
         )}
 
         <p className="poster-name">{pet.name}</p>
@@ -104,6 +111,7 @@ function PosterModal({ pets, onClose }) {
           {pet.microchip && <div><strong>Microchip:</strong> {pet.microchip}</div>}
           {pet.notes && <div><strong>Señas:</strong> {pet.notes}</div>}
           {lastSeen && <div><strong>Visto por última vez:</strong> {lastSeen}</div>}
+          {comuna && <div><strong>Zona:</strong> {comuna}</div>}
           {reward && <div className="poster-reward"><strong>Recompensa:</strong> {reward}</div>}
         </div>
 
@@ -111,7 +119,6 @@ function PosterModal({ pets, onClose }) {
           <Phone size={14} /> {contact || 'Agrega tu contacto arriba'}
         </div>
 
-        {/* Código QR simulado (patrón determinista según el id de la mascota) */}
         <div className="qr-box">
           {Array.from({ length: 25 }).map((_, i) => {
             const seed = pet.id.charCodeAt(i % pet.id.length) + i * 7;
@@ -125,7 +132,7 @@ function PosterModal({ pets, onClose }) {
         <button className="btn-ghost" onClick={handleShare}>
           <Share2 size={15} /> Compartir
         </button>
-        <button className="btn-ghost" onClick={handlePrint}>
+        <button className="btn-ghost" onClick={() => window.print()}>
           <Printer size={15} /> Imprimir
         </button>
       </div>
@@ -136,9 +143,15 @@ function PosterModal({ pets, onClose }) {
 // ============================================================
 // 🚨 PANTALLA SOS
 // ============================================================
-export default function SosScreen({ pets }) {
+export default function SosScreen({ pets, comuna, onEditComuna }) {
   const [activeFilter, setActiveFilter] = useState('Todos');
   const [posterOpen, setPosterOpen] = useState(false);
+  const [coords, setCoords] = useState(null); // ubicación GPS si el usuario la activa
+  const [locating, setLocating] = useState(false);
+
+  const zona = comuna || DEFAULT_COMUNA;
+  // La lista curada solo aplica a Peñalolén; en otras comunas usamos el mapa
+  const showCurated = zona === 'Peñalolén';
 
   const filteredPlaces = useMemo(() => {
     const category = FILTER_TO_CATEGORY[activeFilter];
@@ -146,12 +159,40 @@ export default function SosScreen({ pets }) {
     return PLACES.filter((p) => p.category === category);
   }, [activeFilter]);
 
-  const mapQuery = useMemo(() => {
-    if (activeFilter === 'Urgencias 24/7') return 'urgencias veterinarias 24 horas Peñalolén Santiago Chile';
-    if (activeFilter === 'Pet Shops / Tiendas') return 'pet shops Peñalolén Santiago Chile';
-    if (activeFilter === 'Veterinarios') return 'veterinarias Peñalolén Santiago Chile';
-    return 'veterinarias y pet shops Peñalolén Santiago Chile';
-  }, [activeFilter]);
+  // El mapa se arma con la comuna del usuario, o con sus coordenadas si activó el GPS
+  const mapSrc = useMemo(() => {
+    const term = FILTER_QUERY[activeFilter];
+    if (coords) {
+      return `https://maps.google.com/maps?q=${encodeURIComponent(term)}&ll=${coords.lat},${coords.lng}&z=14&output=embed`;
+    }
+    return `https://maps.google.com/maps?q=${encodeURIComponent(`${term} ${zona} Chile`)}&z=14&output=embed`;
+  }, [activeFilter, zona, coords]);
+
+  const mapsLink = useMemo(() => {
+    const term = encodeURIComponent(`${FILTER_QUERY[activeFilter]} ${coords ? '' : zona + ' Chile'}`);
+    return coords
+      ? `https://www.google.com/maps/search/${term}/@${coords.lat},${coords.lng},14z`
+      : `https://www.google.com/maps/search/${term}`;
+  }, [activeFilter, zona, coords]);
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      window.alert('Tu navegador no permite obtener la ubicación.');
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setLocating(false);
+      },
+      () => {
+        setLocating(false);
+        window.alert('No pudimos obtener tu ubicación. Revisa los permisos del navegador.');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const handleRoute = (place) => {
     const dest = encodeURIComponent(`${place.name}, ${place.address}, Chile`);
@@ -166,14 +207,17 @@ export default function SosScreen({ pets }) {
   return (
     <div className="screen">
       <h1 className="screen-title">Emergencias</h1>
-      <p className="screen-subtitle">
-        <MapPin size={13} /> Peñalolén, Santiago
-      </p>
 
-      <button className="sos-button" onClick={() => window.alert('📞 Contacta directamente a la clínica más cercana desde la lista de abajo.')}>
+      <button className="location-bar" onClick={onEditComuna}>
+        <MapPin size={14} color="#FF8A80" />
+        <span>{coords ? 'Ubicación actual (GPS)' : zona}</span>
+        <Pencil size={12} color="#78909C" />
+      </button>
+
+      <button className="sos-button" onClick={() => window.open(mapsLink, '_blank', 'noopener,noreferrer')}>
         <div>
           <p className="sos-title">Urgencia veterinaria</p>
-          <p className="sos-subtitle">Clínicas 24/7 cerca de ti</p>
+          <p className="sos-subtitle">Buscar clínicas 24/7 cerca de ti</p>
         </div>
         <div className="sos-icon-circle-lg">
           <Siren size={26} color="#fff" />
@@ -186,14 +230,24 @@ export default function SosScreen({ pets }) {
 
       <div className="filter-scroll flush" style={{ marginTop: 22 }}>
         {FILTERS.map((f) => (
-          <button
-            key={f}
-            className={`filter-chip ${f === activeFilter ? 'active' : ''}`}
-            onClick={() => setActiveFilter(f)}
-          >
+          <button key={f} className={`filter-chip ${f === activeFilter ? 'active' : ''}`} onClick={() => setActiveFilter(f)}>
             {f}
           </button>
         ))}
+      </div>
+
+      <div className="map-tools">
+        <button className="btn-ghost small" onClick={useMyLocation} disabled={locating}>
+          <Crosshair size={13} /> {locating ? 'Ubicando…' : 'Usar mi ubicación'}
+        </button>
+        {coords && (
+          <button className="btn-ghost small" onClick={() => setCoords(null)}>
+            Volver a {zona}
+          </button>
+        )}
+        <a className="btn-ghost small" href={mapsLink} target="_blank" rel="noopener noreferrer">
+          <ExternalLink size={13} /> Abrir en Maps
+        </a>
       </div>
 
       <div className="map-frame-wrap">
@@ -201,35 +255,50 @@ export default function SosScreen({ pets }) {
           title="Mapa de servicios veterinarios cercanos"
           loading="lazy"
           referrerPolicy="no-referrer-when-downgrade"
-          src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=14&output=embed`}
+          src={mapSrc}
         />
       </div>
 
-      <div className="section-header-row">
-        <h2 className="section-title">Lugares cercanos</h2>
-        <LayoutGrid size={18} color="#A5D6A7" />
-      </div>
+      {showCurated ? (
+        <>
+          <div className="section-header-row">
+            <h2 className="section-title">Lugares en {zona}</h2>
+            <LayoutGrid size={18} color="#A5D6A7" />
+          </div>
 
-      {filteredPlaces.map((place) => (
-        <div key={place.id} className="place-card">
-          <span className="place-dot" style={{ background: CATEGORY_COLOR[place.category] }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p className="place-name">{place.name}</p>
-            <p className="place-subtitle">{place.subtitle}</p>
-            <p className="place-address">{place.address}</p>
-          </div>
-          <div className="place-actions">
-            <button className="place-action-btn" onClick={() => handleSearchPhone(place)} aria-label="Buscar teléfono">
-              <Phone size={15} />
-            </button>
-            <button className="place-action-btn route" onClick={() => handleRoute(place)} aria-label="Cómo llegar">
-              <Navigation size={15} />
-            </button>
-          </div>
+          {filteredPlaces.map((place) => (
+            <div key={place.id} className="place-card">
+              <span className="place-dot" style={{ background: CATEGORY_COLOR[place.category] }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="place-name">{place.name}</p>
+                <p className="place-subtitle">{place.subtitle}</p>
+                <p className="place-address">{place.address}</p>
+              </div>
+              <div className="place-actions">
+                <button className="place-action-btn" onClick={() => handleSearchPhone(place)} aria-label="Buscar teléfono">
+                  <Phone size={15} />
+                </button>
+                <button className="place-action-btn route" onClick={() => handleRoute(place)} aria-label="Cómo llegar">
+                  <Navigation size={15} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
+        <div className="info-card" style={{ marginTop: 4 }}>
+          <p>
+            Mostrando resultados para <strong>{zona}</strong>. Toca los marcadores del mapa para ver
+            horarios, teléfonos y cómo llegar.
+          </p>
+          <p className="info-note">
+            Aún no tenemos una lista curada para tu comuna. Si conoces clínicas de urgencia que deberían
+            estar aquí, cuéntanos en la sección Comunidad.
+          </p>
         </div>
-      ))}
+      )}
 
-      {posterOpen && <PosterModal pets={pets} onClose={() => setPosterOpen(false)} />}
+      {posterOpen && <PosterModal pets={pets} comuna={zona} onClose={() => setPosterOpen(false)} />}
     </div>
   );
 }

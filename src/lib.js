@@ -102,3 +102,99 @@ export async function uploadImage(file, userId, folder = 'pets') {
   const { data } = supabase.storage.from('pet-photos').getPublicUrl(path);
   return data.publicUrl;
 }
+
+// ============================================================
+// 📍 UBICACIÓN DEL USUARIO
+// ============================================================
+
+/** Comunas frecuentes (sugerencias; el usuario puede escribir cualquiera) */
+export const COMUNAS = [
+  'Cerrillos', 'Cerro Navia', 'Conchalí', 'El Bosque', 'Estación Central', 'Huechuraba',
+  'Independencia', 'La Cisterna', 'La Florida', 'La Granja', 'La Pintana', 'La Reina',
+  'Las Condes', 'Lo Barnechea', 'Lo Espejo', 'Lo Prado', 'Macul', 'Maipú', 'Ñuñoa',
+  'Pedro Aguirre Cerda', 'Peñalolén', 'Providencia', 'Pudahuel', 'Quilicura',
+  'Quinta Normal', 'Recoleta', 'Renca', 'San Joaquín', 'San Miguel', 'San Ramón',
+  'Santiago Centro', 'Vitacura', 'Puente Alto', 'San Bernardo', 'Colina', 'Melipilla',
+  'Valparaíso', 'Viña del Mar', 'Concepción', 'La Serena', 'Antofagasta', 'Temuco',
+  'Rancagua', 'Talca', 'Puerto Montt', 'Iquique', 'Arica', 'Chillán', 'Valdivia', 'Osorno',
+];
+
+export const DEFAULT_COMUNA = 'Peñalolén';
+
+/** Lee la comuna guardada en el perfil del usuario */
+export function getComuna(session) {
+  return session?.user?.user_metadata?.comuna || DEFAULT_COMUNA;
+}
+
+/** Guarda la comuna en el perfil (metadata del usuario en Supabase Auth) */
+export async function saveComuna(comuna) {
+  const { data, error } = await supabase.auth.updateUser({ data: { comuna } });
+  if (error) throw error;
+  return data.user;
+}
+
+/**
+ * Obtiene un nombre de pila limpio.
+ * Toma solo el primer nombre y descarta apellidos; si viene de un correo
+ * como "valeska.lara.c@gmail.com", se queda con "Valeska".
+ */
+export function firstName(user) {
+  const full = user?.user_metadata?.full_name || user?.user_metadata?.name;
+  if (full) return capitalize(full.trim().split(/\s+/)[0]);
+
+  const local = user?.email?.split('@')[0] || '';
+  const first = local.split(/[._\-0-9]+/).filter(Boolean)[0];
+  return first ? capitalize(first) : 'DogLover';
+}
+
+function capitalize(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
+
+// ============================================================
+// 🦜 CATEGORÍAS DE ESPECIES
+// ============================================================
+
+/**
+ * Grupos de especies soportados.
+ * `group` decide el ícono y las reglas de cálculo; `type` es el texto libre
+ * que escribe el usuario (ej: "Loro choroy", "Hámster ruso", "Tarántula").
+ */
+export const SPECIES_GROUPS = [
+  { id: 'perro',   label: 'Perro',    icon: 'Dog',      examples: 'Mestizo, Labrador, Quiltro' },
+  { id: 'gato',    label: 'Gato',     icon: 'Cat',      examples: 'Siamés, Común Europeo' },
+  { id: 'ave',     label: 'Ave',      icon: 'Bird',     examples: 'Loro, Catita, Canario, Cacatúa' },
+  { id: 'roedor',  label: 'Roedor',   icon: 'Rat',      examples: 'Hámster, Cobayo, Chinchilla, Ratón' },
+  { id: 'conejo',  label: 'Conejo',   icon: 'Rabbit',   examples: 'Belier, Cabeza de León' },
+  { id: 'reptil',  label: 'Reptil',   icon: 'Turtle',   examples: 'Tortuga, Iguana, Gecko, Serpiente' },
+  { id: 'pez',     label: 'Pez',      icon: 'Fish',     examples: 'Betta, Goldfish, Guppy' },
+  { id: 'otro',    label: 'Otro',     icon: 'Bug',      examples: 'Araña, Insecto palo, Erizo' },
+];
+
+/** Especies para las que tenemos fórmulas de alimento validadas */
+export const SPECIES_WITH_FOOD_FORMULA = ['perro', 'gato'];
+
+export function getSpeciesGroup(pet) {
+  // Compatibilidad: las mascotas antiguas solo tienen `type` con "Perro"/"Gato"
+  if (pet?.species_group) return pet.species_group;
+  if (pet?.type === 'Gato') return 'gato';
+  if (pet?.type === 'Perro') return 'perro';
+  return 'otro';
+}
+
+export function getSpeciesMeta(groupId) {
+  return SPECIES_GROUPS.find((g) => g.id === groupId) || SPECIES_GROUPS[SPECIES_GROUPS.length - 1];
+}
+
+/** Vacunas sugeridas según el grupo de especie */
+export const VACCINE_BY_GROUP = {
+  perro: ['Antirrábica', 'Óctuple Canina', 'Séxtuple Canina', 'Tos de las Perreras (KC)'],
+  gato: ['Antirrábica', 'Triple Felina', 'Leucemia Felina'],
+  conejo: ['Mixomatosis', 'Enfermedad Hemorrágica Vírica'],
+  ave: ['Control veterinario anual', 'Desparasitación'],
+  roedor: ['Control veterinario anual', 'Desparasitación'],
+  reptil: ['Control veterinario anual', 'Examen parasitológico'],
+  pez: ['Control de calidad del agua'],
+  otro: ['Control veterinario anual'],
+};

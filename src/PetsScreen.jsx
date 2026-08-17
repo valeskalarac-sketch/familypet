@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Plus, Pencil, Trash2, Syringe, Check, Calendar, Dog, Cat,
+  Plus, Pencil, Trash2, Syringe, Check, Calendar,
   ChevronDown, ChevronUp, AlertTriangle,
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { PetAvatar, Modal, ImagePicker, ConfirmDialog } from './components';
-import { VACCINE_TEMPLATES, formatAge, formatDate, daysUntil, uploadImage } from './lib';
+import { PetAvatar, Modal, ImagePicker, ConfirmDialog, MultiImagePicker, SpeciesIcon } from './components';
+import { formatAge, formatDate, daysUntil, uploadImage, SPECIES_GROUPS, getSpeciesGroup, getSpeciesMeta, VACCINE_BY_GROUP } from './lib';
 
 // ============================================================
 // 📝 FORMULARIO DE MASCOTA (sirve para crear y editar)
@@ -13,6 +13,7 @@ import { VACCINE_TEMPLATES, formatAge, formatDate, daysUntil, uploadImage } from
 function PetForm({ pet, onClose, onSave, userId }) {
   const isEdit = !!pet;
   const [name, setName] = useState(pet?.name || '');
+  const [group, setGroup] = useState(pet ? getSpeciesGroup(pet) : 'perro');
   const [type, setType] = useState(pet?.type || 'Perro');
   const [breed, setBreed] = useState(pet?.breed || '');
   const [weight, setWeight] = useState(pet?.weight?.toString() || '');
@@ -21,6 +22,8 @@ function PetForm({ pet, onClose, onSave, userId }) {
   const [microchip, setMicrochip] = useState(pet?.microchip || '');
   const [notes, setNotes] = useState(pet?.notes || '');
   const [photoFile, setPhotoFile] = useState(null);
+  const [galleryExisting, setGalleryExisting] = useState(pet?.gallery || []);
+  const [galleryFiles, setGalleryFiles] = useState([]);
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async () => {
@@ -34,9 +37,17 @@ function PetForm({ pet, onClose, onSave, userId }) {
       // Solo subimos si el usuario eligió una foto nueva
       if (photoFile) photo_url = await uploadImage(photoFile, userId, 'pet');
 
+      // Subimos las fotos nuevas de la galería y las unimos a las ya guardadas
+      const uploaded = [];
+      for (const f of galleryFiles) {
+        uploaded.push(await uploadImage(f, userId, 'gallery'));
+      }
+
       await onSave({
+        gallery: [...galleryExisting, ...uploaded],
         name: name.trim(),
-        type,
+        type: type.trim() || getSpeciesMeta(group).label,
+        species_group: group,
         breed: breed.trim() || 'Sin raza definida',
         weight: parseFloat(weight),
         age: parseFloat(age),
@@ -55,25 +66,55 @@ function PetForm({ pet, onClose, onSave, userId }) {
 
   return (
     <Modal title={isEdit ? `Editar a ${pet.name}` : 'Agregar mascota'} onClose={onClose}>
-      <ImagePicker value={pet?.photo_url} onChange={setPhotoFile} label="Foto de la mascota" round />
+      <ImagePicker value={pet?.photo_url} onChange={setPhotoFile} label="Foto principal" round />
+
+      <MultiImagePicker
+        existing={galleryExisting}
+        onChangeFiles={setGalleryFiles}
+        onRemoveExisting={(i) => setGalleryExisting((prev) => prev.filter((_, idx) => idx !== i))}
+        max={4}
+        label="Fotos adicionales (se usan en el afiche)"
+      />
 
       <label className="input-label">Nombre</label>
       <input className="text-input" placeholder="Ej: Firulais" value={name} onChange={(e) => setName(e.target.value)} />
 
-      <label className="input-label">Tipo</label>
-      <div className="type-selector-row">
-        {['Perro', 'Gato'].map((t) => (
-          <button key={t} className={`type-chip ${type === t ? 'active' : ''}`} onClick={() => setType(t)}>
-            {t === 'Gato' ? <Cat size={16} /> : <Dog size={16} />}
-            {t}
+      <label className="input-label">Categoría</label>
+      <div className="species-grid">
+        {SPECIES_GROUPS.map((g) => (
+          <button
+            key={g.id}
+            className={`species-chip ${group === g.id ? 'active' : ''}`}
+            onClick={() => {
+              setGroup(g.id);
+              // Prellenamos el tipo con la etiqueta si el campo aún no fue personalizado
+              const labels = SPECIES_GROUPS.map((x) => x.label);
+              if (!type || labels.includes(type)) setType(g.label);
+            }}
+          >
+            <SpeciesIcon group={g.id} size={18} />
+            <span>{g.label}</span>
           </button>
         ))}
       </div>
 
-      <label className="input-label">Raza</label>
-      <input className="text-input" placeholder="Ej: Mestizo, Siamés…" value={breed} onChange={(e) => setBreed(e.target.value)} />
+      <label className="input-label">Especie <span className="label-hint">(puedes escribirla)</span></label>
+      <input
+        className="text-input"
+        placeholder={`Ej: ${getSpeciesMeta(group).label}`}
+        value={type}
+        onChange={(e) => setType(e.target.value)}
+      />
 
-      <label className="input-label">Peso (kg)</label>
+      <label className="input-label">Raza o variedad</label>
+      <input
+        className="text-input"
+        placeholder={`Ej: ${getSpeciesMeta(group).examples}`}
+        value={breed}
+        onChange={(e) => setBreed(e.target.value)}
+      />
+
+      <label className="input-label">Peso (kg) <span className="label-hint">usa decimales si es pequeño, ej: 0.3</span></label>
       <input className="text-input" type="number" step="0.1" placeholder="Ej: 10" value={weight} onChange={(e) => setWeight(e.target.value)} />
 
       <label className="input-label">Edad</label>
@@ -112,7 +153,7 @@ function PetForm({ pet, onClose, onSave, userId }) {
 // ============================================================
 // 💉 FORMULARIO DE VACUNA (crear y editar)
 // ============================================================
-function VaccineForm({ vaccine, petType, onClose, onSave }) {
+function VaccineForm({ vaccine, petGroup, petLabel, onClose, onSave }) {
   const isEdit = !!vaccine;
   const [name, setName] = useState(vaccine?.name || '');
   const [appliedDate, setAppliedDate] = useState(vaccine?.applied_date || '');
@@ -121,7 +162,7 @@ function VaccineForm({ vaccine, petType, onClose, onSave }) {
   const [done, setDone] = useState(vaccine?.done || false);
   const [saving, setSaving] = useState(false);
 
-  const templates = VACCINE_TEMPLATES.filter((v) => v.species.includes(petType));
+  const templates = VACCINE_BY_GROUP[petGroup] || VACCINE_BY_GROUP.otro;
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -149,11 +190,11 @@ function VaccineForm({ vaccine, petType, onClose, onSave }) {
     <Modal title={isEdit ? 'Editar vacuna' : 'Agregar vacuna'} onClose={onClose}>
       {!isEdit && templates.length > 0 && (
         <>
-          <label className="input-label">Sugerencias para {petType.toLowerCase()}s en Chile</label>
+          <label className="input-label">Sugerencias para {petLabel.toLowerCase()}</label>
           <div className="template-row">
             {templates.map((t) => (
-              <button key={t.name} className="template-chip" onClick={() => setName(t.name)}>
-                {t.name}
+              <button key={t} className="template-chip" onClick={() => setName(t)}>
+                {t}
               </button>
             ))}
           </div>
@@ -308,7 +349,8 @@ function VaccineSection({ pet, userId }) {
       {formOpen && (
         <VaccineForm
           vaccine={editing}
-          petType={pet.type}
+          petGroup={getSpeciesGroup(pet)}
+          petLabel={getSpeciesMeta(getSpeciesGroup(pet)).label}
           onClose={() => {
             setFormOpen(false);
             setEditing(null);
@@ -356,7 +398,7 @@ export default function PetsScreen({ pets, userId, onCreate, onUpdate, onDelete 
         return (
           <div key={pet.id} className="pet-panel">
             <div className="pet-panel-head">
-              <PetAvatar type={pet.type} size={52} photoUrl={pet.photo_url} />
+              <PetAvatar pet={pet} size={52} photoUrl={pet.photo_url} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p className="pet-panel-name">{pet.name}</p>
                 <p className="pet-panel-meta">

@@ -1086,3 +1086,75 @@ select {
 @media (max-width: 360px) {
   .species-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ============================================================
+   ESTILOS v3: consumo real, guía de alimentos, blog comunitario
+   ============================================================ */
+
+/* Comparación recomendado vs real */
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.compare-card { border-radius: 18px; padding: 16px 14px; }
+.compare-card.rec { background: var(--bg-soft); }
+.compare-card.real { background: var(--mint-light); }
+.compare-card.empty { background: var(--bg-soft); opacity: .75; }
+.compare-tag { font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .5px; color: var(--text-muted); margin: 0; }
+.compare-num { font-size: 26px; font-weight: 800; margin: 6px 0 0; line-height: 1; }
+.compare-num.muted { color: var(--border); }
+.compare-num span { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-left: 3px; }
+.compare-note { font-size: 10px; color: var(--text-muted); margin: 5px 0 0; }
+
+.diff-banner { display: flex; gap: 9px; align-items: flex-start; border-radius: 14px;
+  padding: 13px 14px; margin-top: 12px; font-size: 12px; line-height: 1.5; }
+.diff-banner.ok { background: var(--mint-light); color: #2E7D32; }
+.diff-banner.over { background: #FFF3E0; color: #E65100; }
+.diff-banner.under { background: #E3F2FD; color: #1565C0; }
+.diff-banner svg { flex-shrink: 0; margin-top: 1px; }
+
+.result-hint { font-size: 11px; color: var(--text-muted); }
+
+/* Señales de condición corporal */
+.signal-list { display: flex; flex-direction: column; gap: 7px; }
+.signal-chip { text-align: left; background: var(--bg-soft); border-radius: 13px;
+  padding: 11px 13px; font-size: 12px; font-weight: 600; color: var(--text-dark); }
+.signal-chip.active { background: var(--mint); color: #fff; }
+
+/* Historial de consumo */
+.log-row { display: flex; align-items: center; gap: 10px; background: var(--bg-soft);
+  border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; }
+.log-title { font-size: 13px; font-weight: 700; margin: 0; }
+.log-meta { font-size: 11px; color: var(--text-muted); margin: 2px 0 0; }
+.log-rate { font-size: 12px; font-weight: 800; color: var(--success); flex-shrink: 0; }
+
+/* Guía de alimentos */
+.tier-card { border-radius: 14px; background: var(--bg-soft); margin-bottom: 8px; overflow: hidden; }
+.tier-head { display: flex; align-items: center; gap: 9px; width: 100%; padding: 14px; }
+.tier-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.tier-label { flex: 1; text-align: left; font-size: 13px; font-weight: 700; }
+.tier-body { padding: 0 14px 14px; }
+.tier-why { font-size: 12px; line-height: 1.5; margin: 0 0 10px; color: var(--text-dark); }
+.tier-sub { font-size: 11px; font-weight: 800; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 5px; }
+.tier-list { margin: 0; padding-left: 17px; font-size: 12px; line-height: 1.6; }
+.tier-examples { font-size: 12px; margin: 0; color: var(--text-dark); }
+
+/* Teléfono visible en tarjetas de lugares */
+.place-phone { font-size: 12px; font-weight: 700; color: var(--success); margin: 3px 0 0; }
+.place-action-btn.wa { background: #25D366; }
+
+/* Comentarios estilo blog */
+.post-author { font-size: 11px; color: var(--text-muted); margin: 8px 0 0; font-style: italic; }
+.thread { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.thread-empty { font-size: 12px; color: var(--text-muted); margin: 0 0 12px; }
+.comment { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 12px; }
+.comment-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--mint);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.comment-head { font-size: 12px; margin: 0; display: flex; gap: 7px;
+  align-items: baseline; flex-wrap: wrap; }
+.comment-date { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+.comment-body { font-size: 12.5px; line-height: 1.5; margin: 3px 0 0; white-space: pre-wrap; }
+.comment-box { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
+.comment-box .textarea { flex: 1; background: #fff; border: 1px solid var(--border); }
+.comment-send { width: 40px; height: 40px; border-radius: 50%; background: var(--mint);
+  color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.comment-send:disabled { opacity: .45; }

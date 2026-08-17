@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Bell, LogOut, PawPrint, Siren, Home as HomeIcon, Calculator as CalculatorIcon,
-  User, Users, Mail, Lock, ShoppingBag, Syringe, ChevronRight,
+  User, Users, Mail, Lock, Syringe, ChevronRight,
   Calendar, AlertTriangle, Utensils, Heart, MapPin, Pencil,
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { PetAvatar, Modal, SpeciesIcon } from './components';
-import { FOOD_QUALITY, formatAge, formatDate, daysUntil, COMUNAS, getComuna, saveComuna, firstName, getSpeciesGroup, getSpeciesMeta, SPECIES_WITH_FOOD_FORMULA } from './lib';
+import { PetAvatar, Modal } from './components';
+import { formatAge, formatDate, daysUntil, COMUNAS, getComuna, saveComuna, firstName } from './lib';
 import PetsScreen from './PetsScreen';
+import CalcScreen from './CalcScreen';
 import CommunityScreen from './CommunityScreen';
 import SosScreen from './SosScreen';
 
@@ -305,186 +306,6 @@ function HomeScreen({ userName, pets, alerts, setActiveTab }) {
           </p>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ============================================================
-// 🧮 CALCULADORA (alimento y arena)
-// ============================================================
-function CalcScreen({ pets, selectedPetId, setSelectedPetId }) {
-  const [qualityId, setQualityId] = useState('premium');
-  const [bagSize, setBagSize] = useState('');
-  const [alertOn, setAlertOn] = useState(false);
-  const [numCats, setNumCats] = useState('1');
-
-  const selectedPet = pets.find((p) => p.id === selectedPetId) || pets[0];
-  const quality = FOOD_QUALITY.find((q) => q.id === qualityId) || FOOD_QUALITY[1];
-
-  const dailyPortionGrams = useMemo(() => {
-    if (!selectedPet) return 0;
-    return Math.round(selectedPet.weight * quality.factor);
-  }, [selectedPet, quality]);
-
-  const bagDurationDays = useMemo(() => {
-    const bagKg = parseFloat(bagSize);
-    if (!bagKg || dailyPortionGrams === 0) return 0;
-    return Math.floor(bagKg / (dailyPortionGrams / 1000));
-  }, [bagSize, dailyPortionGrams]);
-
-  const restockDate = useMemo(() => {
-    if (bagDurationDays <= 0) return null;
-    const d = new Date();
-    d.setDate(d.getDate() + bagDurationDays - 3);
-    return d.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' });
-  }, [bagDurationDays]);
-
-  const group = selectedPet ? getSpeciesGroup(selectedPet) : 'otro';
-  const isCat = group === 'gato';
-  const hasFormula = SPECIES_WITH_FOOD_FORMULA.includes(group);
-  const catCount = Math.max(1, parseInt(numCats) || 1);
-  const weeklyLitterKg = 1.5 * catCount;
-
-  if (!selectedPet) {
-    return (
-      <div className="screen">
-        <h1 className="screen-title">Calculadora</h1>
-        <p className="empty-text">Registra una mascota para usar la calculadora.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="screen">
-      <h1 className="screen-title">Calculadora Inteligente</h1>
-      <p className="screen-subtitle">Alimento y arena sanitaria</p>
-
-      <label className="input-label" style={{ marginTop: 0 }}>¿Para quién calculamos?</label>
-      <div className="scroll-x" style={{ marginBottom: 8 }}>
-        {pets.map((pet) => {
-          const active = pet.id === selectedPet.id;
-          return (
-            <button
-              key={pet.id}
-              className={`pet-pill ${active ? 'active' : ''}`}
-              onClick={() => setSelectedPetId(pet.id)}
-            >
-              <SpeciesIcon pet={pet} size={16} />
-              {pet.name}
-            </button>
-          );
-        })}
-      </div>
-
-      {!hasFormula ? (
-        <div className="info-card" style={{ marginTop: 18 }}>
-          <p>
-            Todavía no tenemos una fórmula validada de ración para{' '}
-            <strong>{getSpeciesMeta(group).label.toLowerCase()}s</strong>. Las necesidades
-            nutricionales varían mucho entre especies y no queremos darte un número inventado.
-          </p>
-          <p className="info-note">
-            Consulta con un veterinario especializado en animales exóticos para la ración de{' '}
-            {selectedPet.name}. Puedes usar el resto de la app para llevar su ficha, vacunas y
-            controles.
-          </p>
-        </div>
-      ) : (
-        <>
-          <label className="input-label">Calidad del alimento</label>
-          <div className="quality-row">
-            {FOOD_QUALITY.map((q) => (
-              <button
-                key={q.id}
-                className={`quality-card ${q.id === qualityId ? 'active' : ''}`}
-                onClick={() => setQualityId(q.id)}
-              >
-                <div className="quality-label">{q.label}</div>
-                <div className="quality-factor">{q.factor}g / kg</div>
-              </button>
-            ))}
-          </div>
-
-          <label className="input-label">Tamaño del saco actual (kg)</label>
-          <input
-            className="text-input"
-            type="number"
-            step="0.5"
-            placeholder="Ej: 15"
-            value={bagSize}
-            onChange={(e) => setBagSize(e.target.value)}
-          />
-
-          <div className="result-card">
-            <div className="result-row">
-              <span className="result-label">Porción diaria recomendada</span>
-              <span className="result-value">{dailyPortionGrams} g/día</span>
-            </div>
-            <div className="result-divider" />
-            <div className="result-row">
-              <span className="result-label">Duración estimada del saco</span>
-              <span className="result-value">{bagDurationDays > 0 ? `${bagDurationDays} días` : '—'}</span>
-            </div>
-            {bagDurationDays > 0 && (
-              <>
-                <div className="result-divider" />
-                <div className="result-row">
-                  <span className="result-label">Sugerimos recomprar el</span>
-                  <span className="result-value">{restockDate}</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="switch-row">
-            <div style={{ flex: 1 }}>
-              <p className="switch-label">Alerta de desabastecimiento</p>
-              <p className="switch-sub-label">Te avisamos antes de que se acabe</p>
-            </div>
-            <button
-              className={`toggle ${alertOn ? 'on' : ''}`}
-              onClick={() => setAlertOn((v) => !v)}
-              aria-label="Alerta de desabastecimiento"
-            >
-              <div className="toggle-knob" />
-            </button>
-          </div>
-          {alertOn && (
-            <div className="alert-confirm-box">
-              ✅ Listo, te notificaremos 3 días antes de que se acabe el alimento de {selectedPet.name}
-              {restockDate ? ` (alrededor del ${restockDate})` : ''}.
-            </div>
-          )}
-        </>
-      )}
-
-      {isCat && (
-        <>
-          <div className="section-header-row" style={{ marginTop: 24 }}>
-            <h2 className="section-title">Arena Sanitaria</h2>
-            <ShoppingBag size={18} color="#FF8A80" />
-          </div>
-          <label className="input-label" style={{ marginTop: 0 }}>¿Cuántos gatos usan la arena?</label>
-          <input
-            className="text-input"
-            type="number"
-            min="1"
-            value={numCats}
-            onChange={(e) => setNumCats(e.target.value)}
-          />
-          <div className="result-card sand">
-            <div className="result-row">
-              <span className="result-label">Consumo semanal estimado</span>
-              <span className="result-value">{weeklyLitterKg.toFixed(1)} kg</span>
-            </div>
-            <div className="result-divider" />
-            <div className="result-row">
-              <span className="result-label">Consumo mensual estimado</span>
-              <span className="result-value">{(weeklyLitterKg * 4).toFixed(1)} kg</span>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
@@ -793,7 +614,9 @@ export default function App() {
       {activeTab === 'calc' && (
         <CalcScreen pets={pets} selectedPetId={selectedPetId} setSelectedPetId={setSelectedPetId} />
       )}
-      {activeTab === 'community' && <CommunityScreen userId={session.user.id} />}
+      {activeTab === 'community' && (
+        <CommunityScreen userId={session.user.id} authorName={userName} />
+      )}
       {activeTab === 'sos' && (
         <SosScreen pets={pets} comuna={comuna} onEditComuna={() => setComunaOpen(true)} />
       )}

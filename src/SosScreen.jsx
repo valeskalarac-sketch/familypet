@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Phone, MapPin, Navigation, QrCode, Siren, Share2, Printer,
-  LayoutGrid, Crosshair, ExternalLink, Pencil,
+  LayoutGrid, Crosshair, ExternalLink, Pencil, MessageCircle,
 } from 'lucide-react';
 import { PetAvatar, Modal } from './components';
 import { PLACES, CATEGORY_COLOR, formatAge, DEFAULT_COMUNA } from './lib';
@@ -199,9 +199,18 @@ export default function SosScreen({ pets, comuna, onEditComuna }) {
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}`, '_blank', 'noopener,noreferrer');
   };
 
-  const handleSearchPhone = (place) => {
+  // Llamada directa si tenemos el número verificado; si no, buscamos en Google
+  const handleCall = (place) => {
+    if (place.phone) {
+      window.location.href = `tel:${place.phone}`;
+      return;
+    }
     const q = encodeURIComponent(`${place.name} ${place.address} teléfono`);
     window.open(`https://www.google.com/search?q=${q}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleWhatsapp = (place) => {
+    window.open(`https://wa.me/${place.whatsapp}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -273,11 +282,27 @@ export default function SosScreen({ pets, comuna, onEditComuna }) {
                 <p className="place-name">{place.name}</p>
                 <p className="place-subtitle">{place.subtitle}</p>
                 <p className="place-address">{place.address}</p>
+                {place.phoneLabel && <p className="place-phone">{place.phoneLabel}</p>}
               </div>
               <div className="place-actions">
-                <button className="place-action-btn" onClick={() => handleSearchPhone(place)} aria-label="Buscar teléfono">
+                <button
+                  className="place-action-btn"
+                  onClick={() => handleCall(place)}
+                  aria-label={place.phone ? `Llamar a ${place.name}` : 'Buscar teléfono'}
+                  title={place.phoneLabel || 'Buscar teléfono'}
+                >
                   <Phone size={15} />
                 </button>
+                {place.whatsapp && (
+                  <button
+                    className="place-action-btn wa"
+                    onClick={() => handleWhatsapp(place)}
+                    aria-label="WhatsApp de urgencias"
+                    title="WhatsApp de urgencias"
+                  >
+                    <MessageCircle size={15} />
+                  </button>
+                )}
                 <button className="place-action-btn route" onClick={() => handleRoute(place)} aria-label="Cómo llegar">
                   <Navigation size={15} />
                 </button>

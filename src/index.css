@@ -1229,3 +1229,24 @@ body.modal-open .tab-bar-wrapper {
 .save-btn {
   margin-bottom: 4px;
 }
+
+/* ============================================================
+   v3.2: cerrar sesión más visible
+   ============================================================ */
+
+.profile-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+
+/* Botón de salida siempre visible arriba a la derecha */
+.logout-icon-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: #FFEBEE; color: var(--sos);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Botón grande, ahora ubicado bajo las estadísticas */
+.signout-btn {
+  background: #FFEBEE;
+  border: 1.5px solid #FFCDD2;
+  margin-top: 18px;
+}

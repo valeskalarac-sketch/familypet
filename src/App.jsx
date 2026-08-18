@@ -5,7 +5,7 @@ import {
   Calendar, AlertTriangle, Utensils, Heart, MapPin, Pencil,
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { PetAvatar, Modal } from './components';
+import { PetAvatar, Modal, ConfirmDialog } from './components';
 import { formatAge, formatDate, daysUntil, COMUNAS, getComuna, saveComuna, firstName } from './lib';
 import PetsScreen from './PetsScreen';
 import CalcScreen from './CalcScreen';
@@ -318,11 +318,20 @@ function ProfileScreen({ session, pets, alerts, comuna, onEditComuna, onSignOut 
   const name = user.user_metadata?.full_name || user.email;
   const avatar = user.user_metadata?.avatar_url;
   const memberSince = formatDate(user.created_at?.slice(0, 10));
+  const [confirmOut, setConfirmOut] = useState(false);
 
   return (
     <div className="screen">
-      <h1 className="screen-title">Mi Perfil</h1>
-      <p className="screen-subtitle">Tu cuenta en FamiliaPet</p>
+      <div className="profile-header">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h1 className="screen-title">Mi Perfil</h1>
+          <p className="screen-subtitle" style={{ marginBottom: 0 }}>Tu cuenta en FamiliaPet</p>
+        </div>
+        {/* Acceso rápido a cerrar sesión, siempre visible arriba */}
+        <button className="logout-icon-btn" onClick={() => setConfirmOut(true)} aria-label="Cerrar sesión">
+          <LogOut size={18} />
+        </button>
+      </div>
 
       <div className="profile-card">
         <div className="profile-avatar">
@@ -361,6 +370,10 @@ function ProfileScreen({ session, pets, alerts, comuna, onEditComuna, onSignOut 
         </div>
       </div>
 
+      <button className="signout-btn" onClick={() => setConfirmOut(true)}>
+        <LogOut size={16} /> Cerrar sesión
+      </button>
+
       <div className="section-header-row" style={{ marginTop: 24 }}>
         <h2 className="section-title">Sobre FamiliaPet</h2>
       </div>
@@ -376,9 +389,15 @@ function ProfileScreen({ session, pets, alerts, comuna, onEditComuna, onSignOut 
         </p>
       </div>
 
-      <button className="signout-btn" onClick={onSignOut}>
-        <LogOut size={16} /> Cerrar sesión
-      </button>
+      {confirmOut && (
+        <ConfirmDialog
+          title="Cerrar sesión"
+          message={`¿Quieres cerrar la sesión de ${user.email}? Tus mascotas y registros quedan guardados en tu cuenta.`}
+          confirmLabel="Cerrar sesión"
+          onConfirm={onSignOut}
+          onCancel={() => setConfirmOut(false)}
+        />
+      )}
     </div>
   );
 }

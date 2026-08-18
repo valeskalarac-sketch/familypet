@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Dog, Cat, Bird, Rabbit, Fish, Turtle, Bug, Rat, X, Camera, Loader2 } from 'lucide-react';
 import { getSpeciesGroup, getSpeciesMeta } from './lib';
 
@@ -49,8 +50,23 @@ export function PetAvatar({ pet, type, group, size = 56, selected, photoUrl }) {
 // 🪟 MODAL BASE (hoja inferior reutilizable)
 // ============================================================
 export function Modal({ title, onClose, children, icon }) {
-  return (
-    <div className="modal-overlay" onClick={onClose}>
+  // En iOS, un position:fixed dentro de un contenedor con scroll se ancla mal.
+  // Renderizamos el modal directamente en <body> con un portal para evitarlo.
+  useEffect(() => {
+    // Bloqueamos el scroll del fondo y ocultamos la barra de pestañas
+    document.body.classList.add('modal-open');
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.classList.remove('modal-open');
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={title}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header-row">
           {icon}
@@ -59,9 +75,10 @@ export function Modal({ title, onClose, children, icon }) {
             <X size={22} color="#78909C" />
           </button>
         </div>
-        {children}
+        <div className="modal-scroll">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -1158,3 +1158,74 @@ select {
 .comment-send { width: 40px; height: 40px; border-radius: 50%; background: var(--mint);
   color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .comment-send:disabled { opacity: .45; }
+
+/* ============================================================
+   FIX iOS v3.1: modales, safe area y barra de pestañas
+   ============================================================ */
+
+/* El modal ahora vive en <body> vía portal: ocupa toda la pantalla real */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  /* dvh respeta la barra dinámica de Safari en iPhone */
+  height: 100dvh;
+  z-index: 1000;
+  align-items: flex-end;
+}
+
+.modal-card {
+  display: flex;
+  flex-direction: column;
+  max-height: 92dvh;
+  /* Espacio para el indicador de inicio del iPhone */
+  padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+}
+
+/* El encabezado queda fijo y solo scrollea el contenido */
+.modal-header-row {
+  flex-shrink: 0;
+  margin-bottom: 14px;
+}
+
+.modal-scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  /* Colchón extra para que el último botón nunca quede pegado al borde */
+  padding-bottom: 12px;
+}
+
+/* Con un modal abierto: sin scroll de fondo y sin barra de pestañas */
+body.modal-open {
+  overflow: hidden;
+}
+body.modal-open .tab-bar-wrapper {
+  display: none;
+}
+
+/* Safe area para la barra de pestañas y el contenido de cada pantalla */
+.tab-bar-wrapper {
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.screen {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Evita el zoom automático de iOS al enfocar un campo (requiere 16px mínimo) */
+@supports (-webkit-touch-callout: none) {
+  .text-input,
+  .textarea,
+  input[type='date'],
+  input[type='number'],
+  input[type='email'],
+  input[type='password'] {
+    font-size: 16px;
+  }
+}
+
+/* El botón de guardar siempre visible al final del formulario */
+.save-btn {
+  margin-bottom: 4px;
+}

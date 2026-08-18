@@ -161,10 +161,11 @@ function NotificationsModal({ alerts, onClose, onGoToPets }) {
 // ============================================================
 // 🏠 PANTALLA DE INICIO (resumen y accesos rápidos)
 // ============================================================
-function HomeScreen({ userName, pets, alerts, setActiveTab }) {
+function HomeScreen({ userName, pets, alerts, setActiveTab, onSignOut }) {
   const proximas = alerts.filter((a) => a.dias >= 0).slice(0, 3);
   const vencidas = alerts.filter((a) => a.dias < 0).slice(0, 3);
   const [bellOpen, setBellOpen] = useState(false);
+  const [confirmOut, setConfirmOut] = useState(false);
 
   return (
     <div className="screen">
@@ -175,6 +176,9 @@ function HomeScreen({ userName, pets, alerts, setActiveTab }) {
         <button className="icon-btn" onClick={() => setBellOpen(true)} aria-label="Notificaciones">
           <Bell size={20} />
           {alerts.length > 0 && <span className="bell-badge">{alerts.length}</span>}
+        </button>
+        <button className="logout-icon-btn small" onClick={() => setConfirmOut(true)} aria-label="Cerrar sesión">
+          <LogOut size={17} />
         </button>
       </div>
 
@@ -295,6 +299,16 @@ function HomeScreen({ userName, pets, alerts, setActiveTab }) {
           <p className="quick-sub">Clínicas cerca</p>
         </button>
       </div>
+
+      {confirmOut && (
+        <ConfirmDialog
+          title="Cerrar sesión"
+          message="Tus mascotas y registros quedan guardados en tu cuenta."
+          confirmLabel="Cerrar sesión"
+          onConfirm={onSignOut}
+          onCancel={() => setConfirmOut(false)}
+        />
+      )}
 
       <div className="tip-card">
         <Heart size={16} color="#43A047" />
@@ -619,7 +633,13 @@ export default function App() {
       {loadingData && <div className="top-loading">Sincronizando…</div>}
 
       {activeTab === 'home' && (
-        <HomeScreen userName={userName} pets={pets} alerts={alerts} setActiveTab={setActiveTab} />
+        <HomeScreen
+          userName={userName}
+          pets={pets}
+          alerts={alerts}
+          setActiveTab={setActiveTab}
+          onSignOut={handleSignOut}
+        />
       )}
       {activeTab === 'pets' && (
         <PetsScreen

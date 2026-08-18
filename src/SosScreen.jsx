@@ -6,6 +6,13 @@ import {
 import { PetAvatar, Modal } from './components';
 import { PLACES, CATEGORY_COLOR, formatAge, DEFAULT_COMUNA } from './lib';
 
+// Teléfonos verificados para marcado rápido en una emergencia
+const QUICK_CALL = [
+  { name: 'Clínica Veterinaria Antupirén', note: 'Urgencia 24/7 · Butacura 8789', phone: '+56223188024', label: '2318 8024' },
+  { name: 'Club Animal', note: 'Clínica · Av. Los Presidentes 7674', phone: '+56227580014', label: '2758 0014' },
+  { name: 'La Granja Pet', note: 'Pet Shop · Antupirén 8340', phone: '+56229580779', label: '2958 0779' },
+];
+
 const FILTERS = ['Todos', 'Urgencias 24/7', 'Pet Shops / Tiendas', 'Veterinarios'];
 const FILTER_TO_CATEGORY = {
   Todos: null,
@@ -268,9 +275,41 @@ export default function SosScreen({ pets, comuna, onEditComuna }) {
         />
       </div>
 
+      {/* Marcado rápido: siempre visible bajo el mapa, en cualquier comuna */}
+      <div className="section-header-row">
+        <h2 className="section-title">Llamado rápido</h2>
+        <Phone size={17} color="#FF3B30" />
+      </div>
+      <div className="quick-call-list">
+        {QUICK_CALL.map((c) => (
+          <div key={c.phone} className="quick-call">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="quick-call-name">{c.name}</p>
+              <p className="quick-call-sub">{c.note}</p>
+            </div>
+            <a className="quick-call-btn" href={`tel:${c.phone}`} aria-label={`Llamar a ${c.name}`}>
+              <Phone size={14} /> {c.label}
+            </a>
+          </div>
+        ))}
+        <a className="quick-call whatsapp" href="https://wa.me/56982945231" target="_blank" rel="noopener noreferrer">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p className="quick-call-name">Club Animal</p>
+            <p className="quick-call-sub">Urgencias por WhatsApp</p>
+          </div>
+          <span className="quick-call-btn wa">
+            <MessageCircle size={14} /> WhatsApp
+          </span>
+        </a>
+      </div>
+      <p className="quick-call-note">
+        Teléfonos de Peñalolén. Si estás en otra comuna, usa el mapa de arriba para encontrar la
+        urgencia más cercana y confirma el horario antes de salir.
+      </p>
+
       {showCurated ? (
         <>
-          <div className="section-header-row">
+          <div className="section-header-row" style={{ marginTop: 22 }}>
             <h2 className="section-title">Lugares en {zona}</h2>
             <LayoutGrid size={18} color="#A5D6A7" />
           </div>
